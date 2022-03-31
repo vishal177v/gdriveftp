@@ -1,0 +1,2811 @@
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>FTP Client With Drive</title>
+    <meta name="description" content="Online FTP Client. Access any FTP server online from your browser. Upload, transfer, and manage your files from anywhere. You can upload a file from local computer, Google Drive, and Dropbox. You can use for transferring files over the browser easily including upload/download file, rename/delete/edit file directory and more.">
+    <meta name="keywords" content="ftp client, online ftp client, ftp client with google drive, ftp client with dropbox, ftp ssl, sftp, sftp ssh, online sftp client">
+
+    <meta property="og:title" content="FTP Client With Drive">
+    <meta property="og:description" content="Online FTP Client. Access any FTP server online from your browser. Upload, transfer, and manage your files from anywhere. You can upload a file from local computer, Google Drive, and Dropbox. You can use for transferring files over the browser easily including upload/download file, rename/delete/edit file directory and more.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="//appzend.herokuapp.com/ftpclient/">
+    <meta property="og:image" content="//appzend.herokuapp.com/ftpclient/img/logo128.png">
+
+    <link rel="shortcut icon" href="./favicon.ico">
+
+    <head>
+        <script src="js/common.js" type="text/javascript"></script>
+        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+
+        <link rel="stylesheet" href="js/CodeMirror5.13/lib/codemirror.css">
+        <script src="//iblogbox.github.io/js/texteditor/all513.js"></script>
+        <style>
+            body,
+            table,
+            td,
+            span,
+            select,
+            input,
+            textarea {
+                font-size: 14px;
+                font-family: Verdana, Arial, Helvetica, sans-serif;
+            }
+
+            button {
+                font-size: 14px;
+                font-family: Verdana, Arial, Helvetica, sans-serif;
+            }
+
+            body {
+                background: #e3e3e3;
+                margin-top: 0px;
+                margin-bottom: 0px;
+                overflow-y: hidden;
+            }
+
+            A:link {
+                color: #0860A8;
+                text-decoration: none;
+            }
+
+            A:visited {
+                color: #0860A8;
+                text-decoration: none;
+            }
+
+            A:active {
+                color: #0860A8;
+                text-decoration: underline;
+            }
+
+            A:hover {
+                color: #0860A8;
+                text-decoration: underline;
+            }
+
+            .divopt {
+                -webkit-box-shadow: 0 0 10px #999;
+                -moz-box-shadow: 0 0 10px #999;
+                box-shadow: 0 0 10px #999;
+            }
+
+            .menulink {
+                font-size: 15px;
+            }
+
+            .input {
+                width: 630px;
+            }
+
+            .small {
+                font-size: 13px;
+            }
+
+            .filename {
+                width: 490px;
+                white-space: nowrap;
+                overflow: hidden;
+                border: 0px solid red;
+            }
+
+            .uploaded {
+                color: green;
+            }
+
+            .error {
+                color: #8A0808;
+            }
+
+            .welcome {
+                color: #45616D;
+            }
+
+            .CodeMirror {
+                line-height: 1.1;
+                border: 1px solid #CDDCED;
+            }
+
+            .breakpoints {
+                width: .8em;
+            }
+
+            .CodeMirror-composing {
+                border-bottom: 0px solid !important;
+            }
+
+            .CodeMirror-linenumber {
+                min-width: 19px !important;
+            }
+        </style>
+        <script>
+            var gadb = false;
+
+            function get_data() {
+                var s = getstorage("ftpc_c_filedata1");
+                if (!s) s = "[]";
+                var a = [];
+                try {
+                    a = JSON.parse(s);
+                } catch (err) {
+                    a = [];
+                }
+                if (!a) a = [];
+                return a;
+            }
+
+            function proc_savetohistory() {
+                var serverurl = trim(_getid('wd_serverurl').value);
+                if (!serverurl) {
+                    alert('No FTP server address. Please enter a FTP server address.');
+                    return;
+                }
+                var subject = _getid('wd_serverurl').value;
+                subject = prompt("Please enter a title or name.", subject);
+                if (!subject) {
+                    return;
+                }
+                var b = {};
+                b.id = (new Date()).getTime();
+                b.subject = subject;
+                b.serverurl = serverurl;
+                b.serverport = _getid('wd_serverport').value;
+                b.wd_servertype = _getid('wd_servertype').value;
+                b.username = _getid('wd_username').value;
+                b.password = _getid('wd_password').value;
+                b.encoding = _getid('wd_encoding').value;
+                b.passivemode = _getid('wd_passivemode').checked;
+
+                var a = get_data();
+                a.push(b);
+                if (a.length > 20) a.splice(0, 1);
+                if (window.JSON) setstorage("ftpc_c_filedata1", JSON.stringify(a));
+
+                proc_displayhistory();
+                var obj = _getid('history');
+                if (obj.options.length >= 2) obj.selectedIndex = 1;
+            }
+
+            function proc_displayhistory() {
+                var obj = _getid('history');
+                var a = get_data();
+
+                for (var i = obj.options.length - 1; i >= 0; i--) obj.remove(i);
+                var c = document.createElement("option");
+                c.value = '';
+                c.appendChild(document.createTextNode('*History'));
+                obj.appendChild(c);
+
+                var s;
+                for (var i = a.length - 1; i >= 0; i--) {
+                    var c = document.createElement("option");
+                    c.value = a[i].id;
+                    s = a[i].subject + ' (' + datetimetostring(a[i].id) + ')';
+                    c.appendChild(document.createTextNode(s));
+                    obj.appendChild(c);
+                }
+            }
+
+            function proc_historychange() {
+                var obj = _getid('history');
+                if (!obj.value) return;
+                var a = get_data();
+                for (i = 0; i < a.length; i++) {
+                    if (a[i].id == obj.value) {
+                        if (a[i].serverurl) {
+                            _getid('wd_serverurl').value = a[i].serverurl;
+                            _getid('wd_username').value = a[i].username;
+                            _getid('wd_password').value = a[i].password;
+                            _getid('wd_serverport').value = a[i].serverport;
+                            _getid('wd_servertype').value = a[i].wd_servertype || 'ftp';
+                            _getid('wd_encoding').value = a[i].encoding || '';
+                            if (a[i].passivemode == null) a[i].passivemode = true;
+                            _getid('wd_passivemode').checked = a[i].passivemode;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            function proc_deletehistory() {
+                var obj = _getid('history');
+                if (!obj.value) return;
+                var a = get_data();
+                for (i = 0; i < a.length; i++) {
+                    if (a[i].id == obj.value) {
+                        a.splice(i, 1);
+                        if (window.JSON) setstorage("ftpc_c_filedata1", JSON.stringify(a));
+                        var idx = obj.selectedIndex;
+                        obj.remove(idx);
+                        if (idx > obj.options.length - 1) idx = obj.options.length - 1;
+                        obj.selectedIndex = idx;
+                        break;
+                    }
+                }
+            }
+
+            function proc_clearhistory() {
+                for (i = 1; i <= 2; i++) {
+                    var answer = confirm("All stored data will be deleted. [" + i + "/2]" + "\n\n" + "Are you sure?");
+                    if (!answer) return;
+                }
+                setstorage("ftpc_c_filedata1", "[]");
+                var obj = _getid('history');
+                for (var i = obj.options.length - 1; i >= 1; i--) obj.remove(i);
+            }
+        </script>
+    </head>
+
+    <body>
+
+        <div id="divhistory" class="shadow" style="background-color:white;position:absolute;overflow:hidden;z-index:1000;display:none;">
+            <table align=center>
+                <tr>
+                    <td><select id='history' onchange="proc_historychange()" style="width:350px"></select>
+                        <td><button type=button onclick="proc_historychange();pc_login()" title="Select and Login"><img src="images/commit.png" align="absmiddle"> Login</button>
+                            <td><button type=button onclick="proc_deletehistory()" title="Delete"><img src="images/close.png" align="absmiddle"></button>
+                                <td><button type=button onclick="proc_clearhistory()">Clear all</button>
+                                    <tr>
+                                        <td colspan=100 align=center><button type=button onclick="proc_savetohistory()">Save the current login to local storage</button> <button onclick="proc_show('divhistory')">Close</button>
+            </table>
+        </div>
+        <div id="diveditor" class="shadow" style="padding:5px !important;background-color:white;position:absolute;overflow:hidden;z-index:1100;display:none;">
+            <table>
+                <tr>
+                    <td>
+                        <div id="diveditor_name" style="width:650px;white-space:nowrap;overflow:hidden;border:0px solid red;"></div>
+                        <tr>
+                            <td>
+                                <tr>
+                                    <td><textarea id="diveditor_text"></textarea>
+                                        <tr>
+                                            <td align=center>
+                                                <button type=button onclick="pc_edit_save(this)">Save</button> <button type=button onclick="_getid('diveditor').style.display='none'">Close</button> &nbsp;&nbsp;
+
+                                                <label><input type=checkbox id='c_linewrap' checked=true>Enable line wrap</label>
+                                                <select id="c_syntaxs" onchange='proc_syntaxs()' style="width:165px;margin-left:8px"><option value="">*Syntax Highlighter<option value="">Plain Text (Default)<script>
+var gsyntaxtimer;
+var gsyntaxs='c,clojure,coffeescript,cpp,css,d,diff,django,dtd,ecl,fortran,gfm,go,groovy,haskell,htmlmixed,java,javascript,jinja2,julia,kotlin,livescript,lua,markdown,mathematica,ntriples,objectivec,octave,pascal,perl,php,properties,python,r,rst,ruby,rust,sass,scala,scheme,shell,smalltalk,smarty,sparql,sql,stex,swift,tcl,tiddlywiki,vb,vbscript,velocity,verilog,vue,xml,xquery,yaml';
+var gsyntaxs2={"gfm":["xml","markdown"],"htmlmixed":["xml","javascript","css"],"markdown":["xml"],"php":["htmlmixed","xml","javascript","css","clike"]};
+var gsyntaxs3={"c":["clike","text/x-csrc"],"cpp":["clike","text/x-c++src"],"java":["clike","text/x-java"],"objectivec":["clike","text/x-objectivec"],"scala":["clike","text/x-scala"],"kotlin":["clike","text/x-kotlin"]};
+function set_syntaxs(){
+	var s;	gsyntaxs=gsyntaxs.split(',');
+	for (var i = 0; i < gsyntaxs.length; i++){	
+		s=gsyntaxs[i];
+		if(gsyntaxs2[s]) s=s+'('+gsyntaxs2[s].join(',')+')';
+		if(s=='c') s='C language';
+		else if(s=='cpp') s='CPP language';
+		else if(s=='objectivec') s='Objective C';
+		else if(s=='javascript') s+=', Json';
+		else if(s=='octave') s+='(MATLAB)';
+		s=s.substr(0,1).toUpperCase()+s.substr(1,s.length);
+		document.write('<option value="'+gsyntaxs[i]+'">'+s);
+	}
+}
+set_syntaxs();
+</script></select>&nbsp;
+                                                <select id="filecharset1" style="width:130px" title="Select text encoding (Default: Unicode -> UTF-8)"><option value="">*Select Text Encoding<optgroup label="Arabic"><option value="IBM-864">IBM-864<option value="IBM-864-I">IBM-864-I<option value="ISO-8859-6">ISO-8859-6<option value="ISO-8859-6-E">ISO-8859-6-E<option value="ISO-8859-6-I">ISO-8859-6-I<option value="MacArabic">MacArabic<option value="Windows-1256">Windows-1256<optgroup label="Armenian"><option value="ARMSCII-8">ARMSCII-8<optgroup label="Baltic"><option value="ISO-8859-13">ISO-8859-13<option value="ISO-8859-4">ISO-8859-4<option value="Windows-1257">Windows-1257<optgroup label="Celtic"><option value="ISO-8859-14">ISO-8859-14<optgroup label="Central European"><option value="IBM-852">IBM-852<option value="ISO-8859-2">ISO-8859-2<option value="MacCE">MacCE<option value="Windows-1250">Windows-1250<optgroup label="Chinese Simplified"><option value="GB18030">GB18030<option value="GB2312">GB2312<option value="GBK">GBK<option value="HZ">HZ<option value="ISO-2022-CN">ISO-2022-CN<optgroup label="Chinese Traditional"><option value="Big5">Big5<option value="Big5-HKSCS">Big5-HKSCS<option value="EUC-TW">EUC-TW<optgroup label="Croatian"><option value="MacCroatian">MacCroatian<optgroup label="Cyrillic"><option value="IBM-855">IBM-855<option value="ISO-8859-5">ISO-8859-5<option value="ISO-IR-111">ISO-IR-111<option value="KOI8-R">KOI8-R<option value="MacCyrillic">MacCyrillic<option value="Windows-1251">Windows-1251<optgroup label="Cyrillic/Russian"><option value="CP-866">CP-866<optgroup label="Cyrillic/Ukrainian"><option value="KOI8-U">KOI8-U<option value="MacUkrainian">MacUkrainian<optgroup label="English"><option value="US-ASCII">US-ASCII<optgroup label="Farsi"><option value="MacFarsi">MacFarsi<optgroup label="Georgian"><option value="GEOSTD8">GEOSTD8<optgroup label="Greek"><option value="ISO-8859-7">ISO-8859-7<option value="MacGreek">MacGreek<option value="Windows-1253">Windows-1253<optgroup label="Gujarati"><option value="MacGujarati">MacGujarati<optgroup label="Gurmukhi"><option value="MacGurmukhi">MacGurmukhi<optgroup label="Hebrew"><option value="IBM-862">IBM-862<option value="ISO-8859-8-E">ISO-8859-8-E<option value="ISO-8859-8-I">ISO-8859-8-I<option value="MacHebrew">MacHebrew<option value="Windows-1255">Windows-1255<optgroup label="Hebrew Visual"><option value="ISO-8859-8">ISO-8859-8<optgroup label="Hindi"><option value="MacDevanagari">MacDevanagari<option value="SunDevanagari">SunDevanagari<optgroup label="Icelandic"><option value="MacIcelandic">MacIcelandic<optgroup label="Japanese"><option value="EUC-JP">EUC-JP<option value="ISO-2022-JP">ISO-2022-JP<option value="Shift_JIS">Shift_JIS<optgroup label="Korean"><option value="EUC-KR">EUC-KR<option value="ISO-2022-KR">ISO-2022-KR<option value="JOHAB">JOHAB<option value="UHC">UHC<optgroup label="Nordic"><option value="ISO-8859-10">ISO-8859-10<optgroup label="Romanian"><option value="ISO-8859-16">ISO-8859-16<option value="MacRomanian">MacRomanian<optgroup label="South European"><option value="ISO-8859-3">ISO-8859-3<optgroup label="Thai"><option value="IBM-874">IBM-874<option value="ISO-8859-11">ISO-8859-11<option value="TIS-620">TIS-620<option value="Windows-874">Windows-874<optgroup label="Turkish"><option value="IBM-857">IBM-857<option value="ISO-8859-9">ISO-8859-9<option value="MacTurkish">MacTurkish<option value="Windows-1254">Windows-1254<optgroup label="Unicode"><option value="UTF-16">UTF-16<option value="UTF-16BE">UTF-16BE<option value="UTF-16LE">UTF-16LE<option value="UTF-32">UTF-32<option value="UTF-32BE">UTF-32BE<option value="UTF-32LE">UTF-32LE<option value="UTF-7">UTF-7<option value="UTF-8">UTF-8 (Default)<optgroup label="Vietnamese"><option value="TCVN">TCVN<option value="VISCII">VISCII<option value="VPS">VPS<option value="Windows-1258">Windows-1258<optgroup label="Western"><option value="IBM-850">IBM-850<option value="ISO-8859-1">ISO-8859-1<option value="ISO-8859-15">ISO-8859-15<option value="MacRoman">MacRoman<option value="Windows-1252">Windows-1252</select>
+                                                <button
+                                                    type=button id="filecharsetbtn" title="Change a file encoding">OK</button>
+            </table>
+        </div>
+
+        <table cellpadding=0 cellspacing=0 align=center>
+            <tr>
+                <td>
+                    <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js" onerror="gadb=true;"></script>
+                    <ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="ca-pub-1113541014872557" data-ad-slot="8691206304"></ins>
+                    <script>
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    </script>
+                    <td><img src="images/blank.png" width=10>
+                        <td valign=top>
+
+                            <table id="maintable" width=670 border=0 align=center class="divopt" style="white-space:nowrap;background-color:white;padding:4px;border: 0px solid #2E79DB;">
+                                <tr>
+                                    <td>
+                                        <table style="white-space:nowrap">
+                                            <tr>
+                                                <td><img src="img/logo65.png" width=35>
+                                                    <td width=1>
+                                                        <td><a href="./" style="color:#1667A0;" title="Online FTP Client. Access any FTP server online from your browser. Upload, transfer, and manage your files from anywhere. You can upload a file from local computer, Google Drive, and Dropbox. You can use for transferring files over the browser easily including upload/download file, rename/delete/edit file directory and more."><span style="color:#1667A0;font-size:25px;font-family:Verdana, Arial;">FTP Client With Drive</span></a>
+                                                            <td>
+
+                                                                <td>&nbsp;&nbsp;<select id="sortype" onchange="sortype_onchange()" style="width:125px">
+<option value="">No Sort
+<option value="modified">Sort by Modified Date
+<option value="size">Sort by Size
+</select> &nbsp;
+                                                                    <select id="wd_transfermode" style="width:125px">
+<option value="">*File Transfer Mode
+<option value="binary">BINARY (Default)
+<option value="ascii">ASCII
+</select> &nbsp;
+                                                                    <button onclick="pc_ftpurl()">Login by FTP URL</button>
+
+                                                                    <td>&nbsp;<span id="downlink2"></span>&nbsp;<span id="downlink3"></span>
+                                        </table>
+
+                                        <center>
+                                        </center>
+
+                                        <form name="f1" onsubmit="proc_submit();return false" style="display:inline">
+                                            <table style="white-space:nowrap">
+                                                <tr>
+                                                    <td colspan=100>
+                                                        FTP Server <input type=text id="wd_serverurl" style="width:250px" value="" spellcheck=false autocomplete="off" placeholder="ex) ftp.test.com" maxlength=2000> &nbsp;FTP Port <input type=text id="wd_serverport"
+                                                            style="width:70px" value="" spellcheck=false autocomplete="off" placeholder="21, 22 (Default)" maxlength=2000> &nbsp;Server Type <select id="wd_servertype" style="width:80px">
+<option value='ftp' selected>FTP (Default Port: 21)
+<option value='ftps_explicit'>FTP/SSL (Explicit Mode, Default Port: 21)
+<option value='sftp'>SFTP (SSH, Default Port: 22)
+</select> &nbsp;
+                                                        <label title="Use it when you can not connect to FTP server because of firewall etc."><input type=checkbox id="wd_passivemode" checked=true>Passive Mode</label> &nbsp;
+                                                        <select id="wd_encoding" style="width:130px" title="Select FTP server character encoding. Use when the characters are broken."><option value="">UTF-8 (Default)<optgroup label="Arabic"><option value="IBM-864">IBM-864<option value="IBM-864-I">IBM-864-I<option value="ISO-8859-6">ISO-8859-6<option value="ISO-8859-6-E">ISO-8859-6-E<option value="ISO-8859-6-I">ISO-8859-6-I<option value="MacArabic">MacArabic<option value="Windows-1256">Windows-1256<optgroup label="Armenian"><option value="ARMSCII-8">ARMSCII-8<optgroup label="Baltic"><option value="ISO-8859-13">ISO-8859-13<option value="ISO-8859-4">ISO-8859-4<option value="Windows-1257">Windows-1257<optgroup label="Celtic"><option value="ISO-8859-14">ISO-8859-14<optgroup label="Central European"><option value="IBM-852">IBM-852<option value="ISO-8859-2">ISO-8859-2<option value="MacCE">MacCE<option value="Windows-1250">Windows-1250<optgroup label="Chinese Simplified"><option value="GB18030">GB18030<option value="GB2312">GB2312<option value="GBK">GBK<option value="HZ">HZ<option value="ISO-2022-CN">ISO-2022-CN<optgroup label="Chinese Traditional"><option value="Big5">Big5<option value="Big5-HKSCS">Big5-HKSCS<option value="EUC-TW">EUC-TW<optgroup label="Croatian"><option value="MacCroatian">MacCroatian<optgroup label="Cyrillic"><option value="IBM-855">IBM-855<option value="ISO-8859-5">ISO-8859-5<option value="ISO-IR-111">ISO-IR-111<option value="KOI8-R">KOI8-R<option value="MacCyrillic">MacCyrillic<option value="Windows-1251">Windows-1251<optgroup label="Cyrillic/Russian"><option value="CP-866">CP-866<optgroup label="Cyrillic/Ukrainian"><option value="KOI8-U">KOI8-U<option value="MacUkrainian">MacUkrainian<optgroup label="English"><option value="US-ASCII">US-ASCII<optgroup label="Farsi"><option value="MacFarsi">MacFarsi<optgroup label="Georgian"><option value="GEOSTD8">GEOSTD8<optgroup label="Greek"><option value="ISO-8859-7">ISO-8859-7<option value="MacGreek">MacGreek<option value="Windows-1253">Windows-1253<optgroup label="Gujarati"><option value="MacGujarati">MacGujarati<optgroup label="Gurmukhi"><option value="MacGurmukhi">MacGurmukhi<optgroup label="Hebrew"><option value="IBM-862">IBM-862<option value="ISO-8859-8-E">ISO-8859-8-E<option value="ISO-8859-8-I">ISO-8859-8-I<option value="MacHebrew">MacHebrew<option value="Windows-1255">Windows-1255<optgroup label="Hebrew Visual"><option value="ISO-8859-8">ISO-8859-8<optgroup label="Hindi"><option value="MacDevanagari">MacDevanagari<option value="SunDevanagari">SunDevanagari<optgroup label="Icelandic"><option value="MacIcelandic">MacIcelandic<optgroup label="Japanese"><option value="EUC-JP">EUC-JP<option value="ISO-2022-JP">ISO-2022-JP<option value="Shift_JIS">Shift_JIS<optgroup label="Korean"><option value="EUC-KR">EUC-KR<option value="ISO-2022-KR">ISO-2022-KR<option value="JOHAB">JOHAB<option value="UHC">UHC<optgroup label="Nordic"><option value="ISO-8859-10">ISO-8859-10<optgroup label="Romanian"><option value="ISO-8859-16">ISO-8859-16<option value="MacRomanian">MacRomanian<optgroup label="South European"><option value="ISO-8859-3">ISO-8859-3<optgroup label="Thai"><option value="IBM-874">IBM-874<option value="ISO-8859-11">ISO-8859-11<option value="TIS-620">TIS-620<option value="Windows-874">Windows-874<optgroup label="Turkish"><option value="IBM-857">IBM-857<option value="ISO-8859-9">ISO-8859-9<option value="MacTurkish">MacTurkish<option value="Windows-1254">Windows-1254<optgroup label="Unicode"><option value="UTF-16">UTF-16<option value="UTF-16BE">UTF-16BE<option value="UTF-16LE">UTF-16LE<option value="UTF-32">UTF-32<option value="UTF-32BE">UTF-32BE<option value="UTF-32LE">UTF-32LE<option value="UTF-7">UTF-7<option value="UTF-8">UTF-8 (Default)<optgroup label="Vietnamese"><option value="TCVN">TCVN<option value="VISCII">VISCII<option value="VPS">VPS<option value="Windows-1258">Windows-1258<optgroup label="Western"><option value="IBM-850">IBM-850<option value="ISO-8859-1">ISO-8859-1<option value="ISO-8859-15">ISO-8859-15<option value="MacRoman">MacRoman<option value="Windows-1252">Windows-1252</select>
+
+                                                        <tr>
+                                                            <td colspan=100>
+                                                                User Name <input type=text id="wd_username" style="width:170px" value="" spellcheck=false autocomplete="off" maxlength=2000> &nbsp;Password <input type=password id="wd_password" style="width:160px"
+                                                                    value="" spellcheck=false autocomplete="off" maxlength=2000> &nbsp;
+                                                                <button id="btn_login" onclick="pc_login()">Login to FTP</button> <button id="" onclick="proc_show('divhistory')" title="Manage Login, Save the login information">M</button> &nbsp;
+                                                                <label title="Remember username, password"><input type=checkbox id="wd_remember">Remember</label> &nbsp;
+                                                                <label title="Do not show confirm dialog box when deleting file"><input type=checkbox id="wd_noconfirm">Disable Confirm</label>
+
+                                                                <tr>
+                                                                    <td>
+                                                                        <button type=button onclick="pc_action('mkdir')" title="Create new folder">New</button>
+                                                                        <button type=button onclick="pc_refresh()" title="Refresh the current folder">R</button>
+                                                                        <button type=button onclick="pc_deleteall()" title="Delete all selected">D</button>
+                                                                        <button type=button onclick="pc_edit()" title="Edit a file">E</button>
+                                                                        <button type=button onclick="pc_getdown()" title="Get a file to server, and Download it">G</button>
+                                                                        <button type=button onclick="pc_check(false)" title="Uncheck all">U</button>
+                                                                        <td>
+                                                                            <div id="dfile1" style="display:"></div>
+                                                                            <script>
+                                                                                document.getElementById("dfile1").innerHTML = '<input type="file" id="fileload1" name="files[]" style="width:150px;margin-left:2px">';
+                                                                            </script>
+                                                                            <td><button type=button onclick="pc_upload()" title="Upload a file from computer, Select a file or Drop a file on this page.">Upload</button>
+                                                                                <td><button type="button" id='btn_open' onclick="gd_open_picker()" title="Upload a file from Google Drive" class=big1><img src="images/gdrive/product16.png" width=17 align="absmiddle"> Drive</button>
+                                                                                    <button type=button onclick="open_dropbox()" title="Upload a file from Dropbox">Dropbox</button>
+                                                                                    <td>
+                                                                                        <div id="downlink" style="width:340px;white-space:nowrap;overflow:hidden;border:0px solid red"></div>
+
+                                            </table>
+                                        </form>
+
+                                        <tr>
+                                            <td>
+                                                <div id="nav" style="white-space:nowrap;overflow:hidden;">
+                                                    <font color=green>Not logged in, Please login to FTP.</font>
+                                                </div>
+
+                                                <tr>
+                                                    <td>
+                                                        <div id="viewer" style="width:970px;height:500px;overflow-y:auto;overflow-x:hidden;">
+                                                            The username and password are not used except to send to FTP server, and not stored anywhere.<br>
+                                                            <br> This app is a browser based FTP Client. Access any FTP server online from your browser.<br> The fastest solution for transferring files from anywhere in the world is by using an FTP client
+                                                            app.<br> You can use for transferring files over the browser easily including upload/download file, rename/delete/edit file directory and more.<br> You can upload a file from local computer,
+                                                            Google Drive, and Dropbox.<br> Supports FTP, FTP/SSL (Explicit Mode), SFTP (SSH) server type for connection.
+                                                        </div>
+                            </table>
+
+                            <td><img src="images/blank.png" width=10>
+                                <td>
+                                    <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+                                    <ins class="adsbygoogle" style="display:inline-block;width:160px;height:600px" data-ad-client="ca-pub-1113541014872557" data-ad-slot="8691206304"></ins>
+                                    <script>
+                                        (adsbygoogle = window.adsbygoogle || []).push({});
+                                    </script>
+        </table>
+
+
+        <script>
+            function proc_checkall(ischeck) {
+                if (ischeck && gopenwindow && gopenwindow.data && !gopenwindow.data.multiselect) return;
+                var obj = _getid('viewer');
+                var a = obj.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox') {
+                        a[i].checked = ischeck;
+                        chk_select(a[i]);
+                    }
+                }
+            }
+
+            var gworking;
+
+            function proc_submit() {
+                setTimeout(function() {}, 0);
+            }
+
+            function chk_select(a) {
+                var f = a.parentNode.parentNode;
+                if (a.checked) {
+                    f.setAttribute('checked', '#F8E0E6');
+                    f.style.backgroundColor = f.getAttribute('checked');
+                } else {
+                    f.setAttribute('checked', '');
+                    f.style.backgroundColor = "";
+                }
+            }
+
+            function tr_onmouseover(f) {
+                if (!f.getAttribute('checked')) f.style.backgroundColor = "#F2F2F2";
+            }
+
+            function tr_onmouseout(f) {
+                f.style.backgroundColor = f.getAttribute('checked') || '';
+            }
+
+            function tr_onclick(f, e) {
+                //console.log(e);
+                if (!f || !e) return;
+                var b2 = e.target || e.srcElement;
+                if (!b2 || b2.tagName == 'A' || b2.tagName == 'INPUT' || b2.tagName == 'IMG') return;
+                var a = f.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox') {
+                        if (!a[i].checked && gopenwindow && gopenwindow.data && !gopenwindow.data.multiselect) {
+                            proc_checkall();
+                        }
+                        a[i].checked = !a[i].checked;
+                        //chk_select(a[i]);
+                        chk_onclick(a[i], e);
+                        break;
+                    }
+                }
+            }
+            var g_chklast = null;
+
+            function chk_onclick(f, e) {
+                if (gopenwindow && gopenwindow.data && !gopenwindow.data.multiselect) return;
+
+                function removesel() {
+                    var sel = window.getSelection ? window.getSelection() : document.selection;
+                    if (sel) {
+                        if (sel.removeAllRanges) sel.removeAllRanges();
+                        else if (sel.empty) sel.empty();
+                    }
+                }
+                if (!f || !e) return;
+                if (e.shiftKey && g_chklast != null) {
+                    var current = f.value;
+                    var flag = false;
+                    var obj = _getid('viewer');
+                    var a = obj.getElementsByTagName('INPUT');
+                    for (var i = 0; i < a.length; i++) {
+                        if (a[i].type != 'checkbox') continue;
+                        if (a[i].value == g_chklast || a[i].value == current) {
+                            flag = !flag;
+                            if (!flag) break;
+                        }
+                        if (flag) {
+                            a[i].checked = true;
+                            chk_select(a[i]);
+                        }
+                    }
+                    removesel();
+                } else {
+                    g_chklast = f.value;
+                }
+                chk_select(f);
+            }
+
+            function getdate(t1) {
+                var month_names_short = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                var date = '';
+                try {
+                    //var issued = (new Date()).setISO8601(t1);
+                    //var issued = new Date(t1*1000);		 
+                    var issued = new Date(t1);
+                    if (!isNaN(issued)) {
+                        var hour = issued.getHours();
+                        var min = issued.getMinutes();
+                        date = month_names_short[issued.getMonth()] + ' ' + fillnumber(issued.getDate()) + ' ' + issued.getFullYear() + ' ' + fillnumber(hour) + ':' + fillnumber(min);
+                    }
+                } catch (err) {
+                    date = '';
+                }
+                return date;
+            }
+
+            var gcolscount = 6;
+            var gfiles;
+            var gcache = [];
+
+            function add_cache(rec, data) {
+                var now = (new Date()).getTime();
+                for (var i = 0; i < gcache.length; i++) {
+                    if (gcache[i].rec.parent == rec.parent) {
+                        gcache[i].data = data;
+                        gcache[i].time = now;
+                        return;
+                    }
+                }
+                if (gcache.length > 20) {
+                    gcache.splice(0, 1);
+                }
+                var a = {};
+                a.rec = {
+                    'parent': rec.parent
+                };
+                a.data = data;
+                a.time = now;
+                gcache.push(a);
+            }
+
+            function get_cache(rec) {
+                var now = (new Date()).getTime();
+                for (var i = 0; i < gcache.length; i++) {
+                    if (gcache[i].rec.parent == rec.parent) {
+                        if ((now - gcache[i].time) / 1000 / 60 > 15) {
+                            gcache.splice(i, 1);
+                            return;
+                        } else {
+                            return gcache[i].data;
+                        }
+                    }
+                }
+            }
+
+            function del_cache(parent) {
+                for (var i = gcache.length - 1; i >= 0; i--) {
+                    if (gcache[i].rec.parent == parent) {
+                        gcache.splice(i, 1);
+                    }
+                }
+            }
+
+            var gopenwindow, gloaded, gresizetimer;
+            window.onload = function() {
+                clearInterval(gresizetimer);
+                gloaded = true;
+                gd_btn_login2();
+            }
+
+            var diff_h, diff_w;
+
+            function gd_btn_login2(e, callback) {
+                var sl = getScrollLeft();
+                var st = getScrollTop();
+                var w = getWindowWidth();
+                var h = getWindowHeight();
+
+                function go(a) {
+                    if (a && a.style.display == '') {
+                        var x = sl + ((w - a.clientWidth) / 2);
+                        var y = st + ((h - a.clientHeight) / 2);
+                        a.style["border"] = "1px solid #000000";
+                        a.style["padding"] = "10px";
+                        a.style.left = x + "px";
+                        a.style.top = y + "px";
+                    }
+                }
+
+                function go2() {
+                    var a = _getid("gviewer");
+                    if (!a || a.style.display != '') return;
+                    var dy = 40;
+                    var dy2 = 15;
+                    var dr = 0.07;
+                    if (a.getAttribute("data") == "small") {
+                        //dy2=parseInt(h*0.08); //dr=0.15;			
+                        w2 = 840;
+                        a.style.left = ((w - w2) / 2) + 'px';
+                        a.style.width = w2 + 'px';
+                    } else {
+                        a.style.left = (sl + parseInt(w * dr)) + 'px';
+                        a.style.width = (w - (parseInt(w * dr) * 2)) + 'px';
+                    }
+                    a.style.top = (st + dy) + 'px';
+                    a.style.height = (h - dy - dy2) + 'px';
+
+                    var b = _getid("btn_gvclose");
+                    b.style.display = '';
+                    var x = sl + ((w - b.offsetWidth) / 2);
+                    var y = st + (dy - b.offsetHeight);
+                    b.style.left = x + 'px';
+                    b.style.top = y + 'px';
+                }
+
+                function go3() {
+                    if (!gloaded) return;
+                    var maintable = _getid('maintable');
+                    var viewer = _getid('viewer');
+                    var c = getOffset(viewer);
+                    //var d=getOffset(_getid('btn_gsave'));
+                    //var h2=h-c.top-(maintable.offsetHeight-d.top)-6;
+                    var h2 = h - c.top - 7;
+                    viewer.style.height = h2 + 'px';
+                }
+
+                function go4() {
+                    var a = _getid("diveditor");
+                    if (!a || a.style.display != '' || !diveditor_text2) return;
+                    var h2 = h - 165;
+                    if (h2 < 100) h2 = 100;
+                    diveditor_text2.setSize(950, h2);
+
+                    var x = sl + ((w - a.clientWidth) / 2);
+                    var y = st + ((h - a.clientHeight) / 2) + 5;
+                    a.style["padding"] = "10px";
+                    a.style.left = x + "px";
+                    a.style.top = y + "px";
+                }
+
+                function run() {
+                    go(_getid("gd_btn_login"));
+                    go(_getid("gd_window"));
+                    go(_getid("divhistory"));
+                    go4();
+                }
+                run();
+                setTimeout(function() {
+                    run();
+                    if (callback) callback();
+                }, 10);
+                go2();
+                go3();
+            }
+
+            var gicons = {
+                "archive": ",zip,rar,gz,tar,7z,cab,jar,",
+                "audio": ",mp3,wav,ogg,flac,wma,aac,ac3,aiff,opus,amr,ape,au,m4a,mka,mpc,ra,",
+                "database": ",db,sqlite,sqlite3,",
+                "diskimage": ",iso,",
+                "document": ",doc,docx,djvu,odt,ps,eps,rtf,wks,wps,xps,pages,dot,dotx,",
+                "executable": ",exe,com,bat,",
+                "font": ",ttf,",
+                "image": ",bmp,exr,gif,ico,jp2,jpeg,jpg,pbm,pcx,pgm,png,ppm,psd,tiff,tif,tga,",
+                "presentation": ",odp,pps,ppsx,ppt,pptx,key,",
+                "spreadsheet": ",ods,xls,xlsx,numbers,xlt,xltx,",
+                "video": ",3gp,avi,flv,m4v,mkv,mov,mp4,mpeg,ogv,wmv,webm,",
+                "web": ",htm,html,xml,",
+                "pdf": ",pdf,",
+                "text": ",txt,"
+            };
+
+            function init() {
+                var s = getstorage('ftpc_c_listcount'); //opt
+                if (s) {
+                    var a = {};
+                    try {
+                        a = JSON.parse(s);
+                    } catch (err) {
+                        a = {}
+                    }
+                    if (a['sortype']) _getid('sortype').value = a['sortype'];
+                    if (a['wd_serverurl']) _getid('wd_serverurl').value = a['wd_serverurl'];
+                    if (a['wd_serverport']) _getid('wd_serverport').value = a['wd_serverport'];
+                    if (a['wd_servertype']) _getid('wd_servertype').value = a['wd_servertype'];
+                    if (a['wd_passivemode']) _getid('wd_passivemode').checked = a['wd_passivemode'];
+                    else if (a['wd_passivemode'] === false) _getid('wd_passivemode').checked = false;
+                    if (a['wd_transfermode']) _getid('wd_transfermode').value = a['wd_transfermode'];
+                    if (a['wd_encoding']) _getid('wd_encoding').value = a['wd_encoding'];
+                    if (a['wd_remember']) {
+                        _getid('wd_remember').checked = a['wd_remember'];
+                        if (a['wd_username']) _getid('wd_username').value = a['wd_username'];
+                        if (a['wd_password']) _getid('wd_password').value = a['wd_password'];
+                    }
+                    //if(a['wd_noconfirm']) _getid('wd_noconfirm').checked=a['wd_noconfirm'];		
+                }
+                window.onbeforeunload = function() {
+                    var a = {};
+                    a['sortype'] = _getid('sortype').value;
+                    a['wd_serverurl'] = _getid('wd_serverurl').value;
+                    a['wd_serverport'] = _getid('wd_serverport').value;
+                    a['wd_servertype'] = _getid('wd_servertype').value;
+                    a['wd_passivemode'] = _getid('wd_passivemode').checked;
+                    a['wd_transfermode'] = _getid('wd_transfermode').value;
+                    a['wd_encoding'] = _getid('wd_encoding').value;
+                    if (_getid('wd_remember').checked) {
+                        a['wd_username'] = _getid('wd_username').value;
+                        a['wd_password'] = _getid('wd_password').value;
+                    } else {
+                        a['wd_username'] = '';
+                        a['wd_password'] = '';
+                    }
+                    a['wd_remember'] = _getid('wd_remember').checked;
+                    //a['wd_noconfirm']=_getid('wd_noconfirm').checked;
+                    setstorage('ftpc_c_listcount', JSON.stringify(a));
+                }
+
+                //search_type_onchange(true);
+                //proc_submit();
+
+                gresizetimer = setInterval(function() {
+                    gloaded = true;
+                    gd_btn_login2();
+                }, 300);
+
+                function keydown(e) {
+                    if (!e) e = window.event;
+                    if (e && e.keyCode == 27) {
+                        proc_rssclose();
+                    }
+                }
+                if (window.addEventListener) {
+                    document.addEventListener("keydown", keydown, false);
+                } else if (window.attachEvent) {
+                    document.attachEvent("onkeydown", keydown);
+                }
+                document.documentElement.onmouseup = function(e) {
+                    if (!e) e = event;
+                    if (e.button != 0 && e.button != 1) return;
+                    var w = getWindowWidth() - 27;
+                    var h = getWindowHeight() - 27;
+                    if (e.clientX > w || e.clientY > h) return;
+                    var b2;
+                    if (e.target) b2 = e.target;
+                    else if (e.srcElement) b2 = e.srcElement;
+                    if (b2.tagName == 'A' || b2.tagName == 'SPAN') return;
+                    while (b2) {
+                        if (b2.id == "rssviewer" || b2.id == "imgrss") {
+                            return;
+                        }
+                        if (b2 == document.body) break;
+                        if (b2.parentElement) b2 = b2.parentElement;
+                        else b2 = b2.parentNode;
+                    }
+                    proc_rssclose();
+                }
+                if (window.addEventListener) {
+                    window.addEventListener("resize", gd_btn_login2, false);
+                } else if (window.attachEvent) {
+                    window.attachEvent("onresize", gd_btn_login2);
+                }
+
+                _getid('fileload1').onchange = function(e) {
+                    if (!e || !e.target) {
+                        alert("This browser does not support.");
+                        return;
+                    }
+                    //if(gd_isdownloading){alert("It's working... Please try again later.");return;}
+                    if (!e.target.files || e.target.files.length == 0) return;
+                    userfiles = e.target.files;
+                }
+                proc_displayhistory();
+
+                var holder = document;
+                holder.ondragover = function(e) {
+                    try {
+                        var ua = navigator.userAgent;
+                        if (ua && ua.indexOf("Chrome") >= 0) {
+                            if (e.originalEvent) e = e.originalEvent;
+                            if (e.dataTransfer) {
+                                var b = e.dataTransfer.effectAllowed;
+                                e.dataTransfer.dropEffect = ('move' === b || 'linkMove' === b) ? 'move' : 'copy';
+                            }
+                        }
+                    } catch (err) {}
+                    return false;
+                };
+                holder.ondragend = function() {
+                    return false;
+                };
+                holder.ondrop = function(e) {
+                    e.preventDefault();
+                    if (!e.dataTransfer.files || e.dataTransfer.files.length == 0) {} else {
+                        userfiles = e.dataTransfer.files;
+                        show_message((userfiles[0].name || '') + '<br>This file has selected.<br>Click the "Upload" button to upload to the current folder.');
+                    }
+                    return false;
+                };
+            }
+
+            var diveditor_text2, g_blob1;
+            var userfiles;
+            var gnavs = [];
+            var gfolders = [];
+
+            var guniq = (new Date()).getTime();
+            var guniqcount = 0;
+            var serverurl, serverport, servertype, username, password, passivemode, encoding;
+            var logintimer, lastftpurl;
+
+            function pc_ftpurl() {
+                var fusername, fpassword, fserverurl, fserverport;
+                var arr, arr2, d, s1;
+                var s = '';
+                while (true) {
+                    s = prompt('Please enter the FTP URL.\nex) ftp://ftp.test.com/dir1/dir2\nftp://ftp.test.com:21/dir1/dir2\nftp://anonymous@ftp.test.com:21/dir1/dir2\nftp://anonymous:1234@ftp.test.com:21/dir1/dir2', lastftpurl || '');
+                    if (!s) return;
+                    lastftpurl = s;
+
+                    arr = s.split('://');
+                    s = arr[arr.length - 1];
+                    arr = s.split('@');
+                    if (arr.length == 2) {
+                        arr2 = arr[0].split(":");
+                        if (arr2.length == 2) {
+                            fusername = arr2[0];
+                            fpassword = arr2[1];
+                        } else if (arr2.length == 1) {
+                            fusername = arr2[0];
+                        } else {
+                            alert('Link parsing failed (1).');
+                            continue;
+                        }
+                        s1 = arr[1];
+                    } else if (arr.length == 1) {
+                        s1 = arr[0];
+                    } else {
+                        alert('Link parsing failed (2).');
+                        continue;
+                    }
+                    arr = s1.split("/");
+                    arr2 = arr[0].split(":");
+                    if (arr2.length == 2) {
+                        fserverurl = arr2[0];
+                        fserverport = arr2[1];
+                    } else if (arr2.length == 1) {
+                        fserverurl = arr2[0];
+                    } else {
+                        alert('Link parsing failed (3).');
+                        continue;
+                    }
+                    if (!fserverurl) {
+                        alert('Link parsing failed (4).');
+                        continue;
+                    }
+                    arr.splice(0, 1);
+                    s = arr.join("/");
+
+                    arr = s.split("/");
+                    gnavs = [];
+                    gnavs.push({
+                        name: "Root Folder",
+                        directory: "/"
+                    });
+                    for (var i = 0; i <= arr.length - 1; i++) {
+                        arr[i] = trim(arr[i]);
+                        if (!arr[i]) continue;
+                        d = {};
+                        d.name = arr[i];
+                        d.parent = gnavs[gnavs.length - 1].directory;
+                        d.directory = d.parent + d.name + '/';
+                        gnavs.push(d);
+                    }
+                    break;
+                }
+                _getid('wd_serverurl').value = fserverurl;
+                _getid('wd_serverport').value = fserverport || '21';
+                _getid('wd_username').value = fusername || '';
+                _getid('wd_password').value = fpassword || '';
+                //console.log(gnavs);
+                pc_login(true, function() {
+                    if (lastcacheurl && lastcacheurl.href != 'ftp://' + username + '@' + serverurl + ':' + serverport + '/') gcache = [];
+                    _getid('nav').innerHTML = '';
+                    pc_list(gnavs.length - 1, true);
+                });
+            }
+
+            function pc_list(idx, ismove, retry, nocache) {
+                var oidx = idx;
+                if (ismove) {
+                    gnavs.splice(idx + 1, gnavs.length);
+                } else {
+                    if (idx == null) {
+                        gnavs = [{
+                            name: 'Root Folder',
+                            directory: '/'
+                        }];
+                        idx = 0;
+                    } else {
+                        gnavs.push(gfolders[idx]);
+                    }
+                }
+                if (!gnavs[gnavs.length - 1]) return;
+                var sortype = _getid('sortype').value;
+                //guniqcount++;
+
+                var param = {
+                    guniq: ''
+                };
+                param.directory = gnavs[gnavs.length - 1].directory;
+                param.method = 'rawlist';
+                param.serverurl = serverurl;
+                param.serverport = serverport;
+                param.servertype = servertype;
+                param.username = username;
+                param.password = password;
+                param.passivemode = passivemode;
+                param.encoding = _getid('wd_encoding').value || '';
+
+                lastcacheurl = {
+                    'href': 'ftp://' + username + '@' + serverurl + ':' + serverport + '/',
+                    'parent': param.directory
+                };
+                var cacheurl = {
+                    'href': lastcacheurl.href,
+                    'parent': param.directory
+                };
+
+                _getid('viewer').innerHTML = '<img src="images/wait.gif"> Please Wait...';
+                guniq = (new Date()).getTime();
+                var uniq = guniq;
+                if (!nocache) {
+                    var data = get_cache(cacheurl);
+                    if (data) {
+                        _getid('viewer').innerHTML = '<img src="images/wait.gif"> Load from the Cache...';
+                        setTimeout(function() {
+                            display(data, true);
+                        }, 250);
+                        return;
+                    }
+                }
+
+                logintimer = setTimeout(function() {
+                    clearTimeout(logintimer);
+                    logintimer = '';
+                }, 1000 * 10);
+                action_post(param, function(resp) {
+                    if (uniq != guniq) return;
+                    clearTimeout(logintimer);
+                    logintimer = '';
+                    _getid('viewer').innerHTML = '';
+                    if (resp && resp.error) {
+                        if (!retry && resp.error == '"/" is not a directory.') {
+                            if (gnavs.length == 1 && gnavs[0].directory == '/') {
+                                gnavs[0].directory = '';
+                                pc_list(0, true, true, nocache);
+                                return;
+                            }
+                        }
+                        pc_log(resp.error, 'error');
+                        if (resp.error.indexOf('is not a directory') >= 0 && gnavs.length >= 2) {
+                            gnavs.splice(gnavs.length - 1, 1);
+                            display_nav();
+                        }
+                    } else if (!resp) {
+                        pc_log('Unknown Error.', 'error');
+                    } else {
+                        isconnected = true;
+                        if (!resp.results || !resp.results.sort) resp.results = [];
+                        if (!passivemode && resp.results.length == 0 && gnavs.length == 1 && !retry) {
+                            var answer = confirm("Failed to fetch data. Do you want to retry to passive mode?");
+                            if (answer) {
+                                passivemode = true;
+                                pc_list(0, true, true, nocache);
+                                return;
+                            }
+                        }
+                        if (gnavs[0]) gnavs[0].systype = resp.systype;
+                        display(resp.results);
+                    }
+                });
+
+                function display_nav() {
+                    var s = '';
+                    for (var i = 0; i <= gnavs.length - 1; i++) {
+                        if (i > 0) s += henc(' > ');
+                        s += '<a href="#" onclick="pc_list(' + i + ',true);return false" title="' + (gnavs[i].systype || '') + '">' + henc(gnavs[i].name) + '</a>';
+                    }
+                    _getid("nav").innerHTML = s;
+                }
+
+                function display(contents, nocache) {
+                    gfolders = [];
+                    guniqcount++;
+                    gfiles = contents;
+                    var s = '';
+                    display_nav();
+
+                    function convertTime(t1) {
+                        var issued = new Date(t1);
+                        if (!isNaN(issued)) {
+                            return issued.getTime();
+                        }
+                        return 0;
+                    }
+
+                    if (!nocache) {
+                        var year = (new Date()).getFullYear();
+                        for (var i = 0; i < contents.length; i++) {
+                            contents[i].parent = param.directory;
+                            if (contents[i].type == 'directory') {
+                                contents[i].isfolder = true;
+                                contents[i].directory = contents[i].parent + contents[i].name + '/';
+                            }
+                            if (contents[i].mtime) {
+                                var t1 = parseInt(contents[i].mtime || contents[i].atime);
+                                if (!t1 || isNaN(t1)) t1 = 0;
+                                s = getdate(t1 * 1000);
+                            } else {
+                                if (!contents[i].time) contents[i].time = '';
+                                s = contents[i].month + ' ' + contents[i].day + ' ';
+                                if (contents[i].time.indexOf(':') >= 0) s += year + ' ';
+                                s += contents[i].time;
+                            }
+                            contents[i].modified = s;
+
+                            contents[i].size = parseInt(contents[i].size);
+                            if (isNaN(contents[i].size)) contents[i].size = '';
+                        }
+                    }
+                    contents.sort(function(a, b) {
+                        if (a.isfolder && !b.isfolder) return -1;
+                        else if (!a.isfolder && b.isfolder) return 1;
+                        else {
+                            if (sortype == 'size') {
+                                if (a.size > b.size) return -1;
+                                else if (a.size < b.size) return 1;
+                                else return 0;
+                            } else if (sortype == 'modified') {
+                                if (convertTime(a.modified) > convertTime(b.modified)) return -1;
+                                else if (convertTime(a.modified) < convertTime(b.modified)) return 1;
+                                else return 0;
+                            } else {
+                                if (a.name > b.name) return 1;
+                                else if (a.name < b.name) return -1;
+                                else return 0;
+                            }
+                        }
+                    });
+
+
+                    var item;
+                    s = '<table style="white-space:nowrap">';
+                    var s1, s2;
+                    var k = 0;
+                    for (var i = 0; i < contents.length; i++) {
+                        item = contents[i];
+                        if (item.deleted || !item.name) continue;
+                        k++;
+                        s += '<tr onmouseover="tr_onmouseover(this)" onmouseout="tr_onmouseout(this)" onclick="tr_onclick(this,event)">';
+                        s1 = '';
+                        if (item.contenttype) s1 += 'Content Type: ' + item.contenttype + "\n";
+                        if (item.created) s1 += 'Created: ' + getdate(item.created) + "\n";
+                        if (item.modified) s1 += 'Modified: ' + getdate(item.modified) + "\n";
+
+                        if (item.isfolder) {
+                            gfolders.push(item);
+                            s += '<td><td><img src="images/icons/folder.png" width=20><td><div class="filename"><a href="#" title="' + henc(s1) + '" onclick="pc_list(' + (gfolders.length - 1) + ');return false">' + henc(item.name) + '</a></div><td><a href="#" onclick="pc_action(\'remove\',' + i + ',this);return false" title="Delete">Del</a> <a href="#" onclick="pc_action(\'rename\',' + i + ',this);return false" title="Rename">Ren</a><td>';
+                        } else if (item.type == 'link') {
+                            s += '<td><td><img src="images/icons/file.png" width=20><td><div class="filename"><a href="#" title="' + henc(s1) + '" onclick="pc_link(' + i + ');return false">' + henc(item.name) + '</a></div><td><span class="uploaded">Link</span><td>';
+                        } else {
+                            s2 = cacheurl.href + item.parent.replace(/^\//, '') + item.name;
+                            s += '<td><input type=checkbox value="' + i + '" onclick="chk_onclick(this,event)"><td><img src="' + find_gicons(item.name) + '" width=20><td><div class="filename"><span title="' + henc(s1) + '">' + henc(item.name) + '</span></div><td><a href="#" onclick="pc_action(\'remove\',' + i + ',this);return false" title="Delete">Del</a> <a href="#" onclick="pc_action(\'rename\',' + i + ',this);return false" title="Rename">Ren</a> <a href="' + s2 + '" download="" title="Download this file" target="_blank">Down</a> <a href="' + s2 + '" target="_blank" title="Open/View in a new window">New</a><td>&nbsp;<span title="' + number_format(item.size) + ' bytes">' + getsize(item.size) + '</span>';
+                        }
+                        s += '<td>' + getdate(item.modified);
+                    }
+                    if (k == 0) s += '<tr><td colspan=100>Not found files and folders.';
+                    s += '</table>';
+                    _getid('viewer').innerHTML = s;
+                    if (!nocache) add_cache(cacheurl, contents);
+                }
+
+            }
+
+            function pc_link(idx) {
+                if (!gfiles[idx]) return;
+                var s = gfiles[idx].name;
+                s = trim(s.split('->')[1] || '');
+                if (!s) return;
+                /*if(validateURL(s)){
+                	window.open(s);
+                	return;
+                }*/
+                if (s == '.') {
+                    s = '';
+                    //}else if(s.indexOf('..')==0){
+                    //alert('".." link is not implemented yet.');return;
+                } else if (s.indexOf('www.') == 0 || s.indexOf('http://') == 0 || s.indexOf('https://') == 0) {
+                    window.open(s);
+                    return;
+                }
+                var arr = s.split('/');
+                var s1, arr2;
+                if (s.indexOf('/') == 0) {
+                    gnavs.splice(1, gnavs.length);
+                    s1 = '/';
+                } else {
+                    s1 = lastcacheurl.parent;
+                }
+
+                for (var i = 0; i < arr.length; i++) {
+                    if (!arr[i]) continue;
+                    if (arr[i] == '..') {
+                        arr2 = s1.split('/');
+                        if (arr2[arr2.length - 1] == '') arr2.splice(arr2.length - 1, 1);
+                        if (gnavs.length <= 1 || arr2.length <= 1) {
+                            alert('Link parsing failed.');
+                            return;
+                        }
+                        arr2.splice(arr2.length - 1, 1);
+                        s1 = arr2.join('/') + '/';
+                        gnavs.splice(gnavs.length - 1, 1);
+                    } else if (arr[i] == '.') {} else {
+                        s1 += arr[i] + '/';
+                        gnavs.push({
+                            'name': arr[i],
+                            'directory': s1
+                        });
+                    }
+                }
+                pc_list(gnavs.length - 1, true);
+            }
+
+            function find_gicons(name) {
+                var ext = ',' + getfileext(name) + ',';
+                for (x in gicons) {
+                    if (gicons[x].indexOf(ext) >= 0) {
+                        return 'images/icons/' + x + '.png';
+                    }
+                }
+                return 'images/icons/file.png';
+            }
+
+            var lastcacheurl, isconnected;
+
+            function pc_action(method, idx, obj, param2) {
+                function _exist(fname) {
+                    for (var i = 0; i < gfiles.length; i++) {
+                        if (!gfiles[i].deleted && gfiles[i].name == fname) {
+                            return gfiles[i];
+                        }
+                    }
+                }
+
+                function _makeuniq(s) {
+                    var s1 = getfilename(s);
+                    var s2 = getfileext2(s);
+                    k = 0;
+                    while (true) {
+                        k++;
+                        if (k > 200) {
+                            alert('Error.');
+                            return;
+                        }
+                        s3 = s1 + ' (' + k + ')';
+                        if (s2) s3 += '.' + s2;
+                        if (!_exist(s3)) {
+                            return s3;
+                        }
+                    }
+                }
+
+                if (!param2) param2 = {};
+                var s, s1, s2, s3, k, fname, fname2, fsize, fileobj;
+                //guniqcount++;
+                var param = {
+                    guniq: '',
+                    rawtext: true
+                };
+                param.headers = [];
+
+                if (method == 'remove') {
+                    if (!gfiles[idx]) return;
+                    if (!_getid('wd_noconfirm').checked && !param2.slient) {
+                        var answer = confirm(gfiles[idx].name + "\n\nDelete this file or folder. Are you sure?");
+                        if (!answer) return;
+                    }
+                    param.source = gfiles[idx].parent + gfiles[idx].name;
+                    param.isfolder = gfiles[idx].isfolder;
+                } else if (method == 'rename') {
+                    fname = gfiles[idx].name;
+                    fname = prompt('Enter a name to be renamed.', fname);
+                    fname = trim(fname || '');
+                    if (!fname) return;
+                    if (fname == gfiles[idx].name) {
+                        alert('Please enter a different name.');
+                        return;
+                    }
+                    fileobj = _exist(fname);
+                    if (fileobj) {
+                        alert('The file name already exists.');
+                        return;
+                    }
+
+                    param.source = gfiles[idx].parent + gfiles[idx].name;
+                    param.dest = gfiles[idx].parent + fname;
+
+                } else if (method == 'mkdir') {
+                    if (!isconnected) {
+                        alert('No current folder exists.');
+                        return;
+                    }
+                    fname = 'New Folder';
+                    fname = prompt('Enter a folder name.', fname);
+                    fname = trim(fname || '');
+                    if (!fname) return;
+                    fileobj = _exist(fname);
+                    if (fileobj) {
+                        var answer = confirm(fileobj.name + " exist.\n\nDo you want to rename?\n(OK: Rename, Cancel: Cancel)");
+                        if (!answer) return;
+                        fileobj = '';
+                        fname = _makeuniq(fname);
+                        if (!fname) return;
+                    }
+                    fname2 = lastcacheurl.parent;
+                    param.source = fname2 + fname + '/';
+
+                } else if (method == 'fput') {
+                    if (gworking) {
+                        alert("It's working... Please try again later.");
+                        return;
+                    }
+                    if (!isconnected) {
+                        alert('No current folder exists.');
+                        return;
+                    }
+                    if (param2.f) {
+                        if (param2.f.size == 0) {
+                            alert('File size is zero. or File not found.');
+                            return;
+                        }
+                        fname = param2.f.name;
+                        fsize = param2.f.size;
+                    } else {
+                        fname = param2.imgtitle;
+                        fsize = param2.data.size;
+                    }
+                    fileobj = _exist(fname);
+                    if (fileobj) {
+                        var answer = confirm(fileobj.name + " exist.\n\nDo you want to rename or overwrite?\n(OK: Rename or Overwrite, Cancel: Cancel Upload)");
+                        if (!answer) return;
+                        var answer = confirm("Select Rename or Overwrite?\n(OK: Rename, Cancel: Overwrite)");
+                        if (answer) {
+                            fileobj = '';
+                            fname = _makeuniq(fname);
+                            if (!fname) return;
+                        }
+                    }
+                    fname2 = lastcacheurl.parent;
+                    param.source = fname2 + fname;
+                } else if (method == 'fget') {
+                    param.name = gfiles[idx].name;
+                    param.source = gfiles[idx].parent + gfiles[idx].name;
+                }
+
+                param.method = method;
+                param.serverurl = serverurl;
+                param.serverport = serverport;
+                param.servertype = servertype;
+                param.username = username;
+                param.password = password;
+                param.passivemode = passivemode;
+                param.transfermode = _getid('wd_transfermode').value;
+                param.encoding = _getid('wd_encoding').value || '';
+
+                if (method == 'fput2') {
+                    if (gworking) {
+                        alert("It's working... Please try again later.");
+                        if (param2.callback) param2.callback(false);
+                        return;
+                    }
+                    param = {};
+                    for (x in param2) {
+                        if (x != 'f' && x != 'callback') param[x] = param2[x];
+                    }
+                    param.method = 'fput';
+                } else if (method == 'fget') {
+                    if (param2 && param2.action) param.action = param2.action;
+                }
+
+                var uniqcount = guniqcount;
+                var lhref = lastcacheurl.href;
+                var lparent = lastcacheurl.parent;
+                action_post(param, function(resp) {
+                    if (guniqcount != uniqcount) {
+                        del_cache(lparent);
+                        if (param2.callback) param2.callback(false);
+                        return;
+                    }
+                    if (!resp || resp.success != 'ok') {
+                        if (resp && resp.error) {
+                            var s = 'Error. ' + resp.error;
+                            alert(s);
+                        } else {
+                            alert('Unknown Error.');
+                        }
+                        if (param2.callback) param2.callback(false);
+                        return;
+                    }
+                    if (method == 'remove') {
+                        var f = obj.parentNode.parentNode;
+                        f.parentNode.removeChild(f);
+                        gfiles[idx].deleted = true;
+
+                    } else if (method == 'rename') {
+                        gfiles[idx].name = fname;
+                        if (gfiles[idx].isfolder) gfiles[idx].directory = gfiles[idx].parent + fname + '/';
+
+                        var f = obj.parentNode.parentNode;
+                        var a = f.getElementsByTagName('DIV');
+                        for (var i = 0; i < a.length; i++) {
+                            if (a[i].className == 'filename') {
+                                var b = a[i].getElementsByTagName('A');
+                                if (b && b[0]) {
+                                    b[0].innerHTML = henc(fname);
+                                } else {
+                                    var b = a[i].getElementsByTagName('SPAN');
+                                    if (b && b[0]) b[0].innerHTML = henc(fname);
+                                    else a[i].innerHTML = henc(fname);
+                                }
+                                break;
+                            }
+                        }
+                    } else if (method == 'mkdir') {
+                        var a = _getid('viewer');
+                        var table = a.getElementsByTagName('TABLE');
+                        if (!table || !table[0]) return;
+
+                        var item = {
+                            'name': fname,
+                            'parent': fname2,
+                            'directory': param.source,
+                            'isfolder': true,
+                            'modified': (new Date()).getTime()
+                        };
+                        gfolders.push(item);
+                        gfiles.push(item);
+                        var i = gfiles.length - 1;
+                        var tr = document.createElement("TR");
+                        tr.onmouseover = function() {
+                            tr_onmouseover(this);
+                        };
+                        tr.onmouseout = function() {
+                            tr_onmouseout(this);
+                        };
+                        tr.onclick = function() {
+                            tr_onclick(this, event);
+                        };
+                        s = '<td><td><img src="images/icons/folder.png" width=20><td><div class="filename"><a href="#" title="" onclick="pc_list(' + (gfolders.length - 1) + ');return false">' + henc(item.name) + '</a></div><td><a href="#" onclick="pc_action(\'remove\',' + i + ',this);return false" title="Delete">Del</a> <a href="#" onclick="pc_action(\'rename\',' + i + ',this);return false" title="Rename">Ren</a><td>';
+                        s += '<td>' + getdate(item.modified);
+                        tr.innerHTML = s;
+                        table[0].insertBefore(tr, table[0].childNodes[0]);
+                        a.scrollTop = 0;
+
+                    } else if (method == 'fput') {
+                        if (resp.size) fsize = resp.size;
+                        if (fileobj) {
+                            fileobj.size = fsize;
+                            fileobj.modified = (new Date()).getTime();
+                            alert(fname + ' have overwrited.');
+                            return;
+                        }
+                        var a = _getid('viewer');
+                        var table = a.getElementsByTagName('TABLE');
+                        if (!table || !table[0]) return;
+
+                        var item = {
+                            'name': fname,
+                            'parent': fname2,
+                            'size': fsize,
+                            'modified': (new Date()).getTime()
+                        };
+                        gfiles.push(item);
+                        var i = gfiles.length - 1;
+                        var tr = document.createElement("TR");
+                        tr.onmouseover = function() {
+                            tr_onmouseover(this);
+                        };
+                        tr.onmouseout = function() {
+                            tr_onmouseout(this);
+                        };
+                        tr.onclick = function() {
+                            tr_onclick(this, event);
+                        };
+
+                        s2 = lhref + item.parent.replace(/^\//, '') + item.name;
+                        s = '<td><input type=checkbox value="' + i + '" onclick="chk_onclick(this,event)"><td><img src="' + find_gicons(item.name) + '" width=20><td><div class="filename"><span title="">' + henc(item.name) + '</span></div><td><a href="#" onclick="pc_action(\'remove\',' + i + ',this);return false" title="Delete">Del</a> <a href="#" onclick="pc_action(\'rename\',' + i + ',this);return false" title="Rename">Ren</a> <a href="' + s2 + '" download="" title="Download this file" target="_blank">Down</a> <a href="' + s2 + '" target="_blank" title="Open/View in a new window">New</a><td>&nbsp;<span title="' + number_format(item.size) + ' bytes">' + getsize(item.size) + '</span>';
+                        s += '<td>' + getdate(item.modified);
+                        tr.innerHTML = s;
+                        table[0].appendChild(tr);
+                        a.scrollTop = a.scrollHeight;
+                    } else if (method == 'fget') {
+                        //
+                    } else if (method == 'fput2') {
+                        //
+                    }
+                    if (param2.callback) param2.callback(true, resp, param);
+                }, param2);
+            }
+
+            var gstop, editparam;
+
+            function pc_deleteall() {
+                var arr = [];
+                var obj = _getid('viewer');
+                var a = obj.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox' && a[i].checked) {
+                        arr.push(a[i]);
+                    }
+                }
+                if (arr.length == 0) {
+                    alert('No selected files.');
+                    return;
+                } else if (arr.length > 30) {
+                    alert('You can select up to 30 at a time.');
+                    return;
+                }
+                var answer = confirm("Delete " + arr.length + " selected files.\nAre you sure?");
+                if (!answer) return;
+
+                _getid('layer_overlay').style.display = '';
+                gstop = false;
+
+                function end() {
+                    _getid('layer_overlay').style.display = 'none';
+                    hide_message();
+                }
+
+                function go(idx) {
+                    show_message('Deleting... <a href="#" onclick="gstop=true;return false">Cancel</a>', '', '', '', 1000 * 60 * 60);
+                    if (idx > arr.length - 1 || gstop) {
+                        alert('Completed.');
+                        end();
+                        return;
+                    }
+                    var param2 = {
+                        'slient': true
+                    };
+                    param2.callback = function(success) {
+                        if (!success) {
+                            var answer = confirm("There is an error. Do you want to continue?");
+                            if (!answer) {
+                                end();
+                                return;
+                            }
+                        }
+                        go(idx + 1);
+                    }
+                    pc_action('remove', arr[idx].value, arr[idx], param2);
+                }
+                go(0);
+            }
+
+            function pc_check(checked) {
+                var obj = _getid('viewer');
+                var a = obj.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox') {
+                        a[i].checked = checked;
+                        chk_select(a[i]);
+                    }
+                }
+            }
+
+            function pc_getdown() {
+                var arr = [];
+                var obj = _getid('viewer');
+                var a = obj.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox' && a[i].checked) {
+                        arr.push(a[i]);
+                    }
+                }
+                if (arr.length == 0) {
+                    alert('No selected files.');
+                    return;
+                } else if (arr.length > 1) {
+                    alert('Please select one file.');
+                    return;
+                }
+                var d = gfiles[arr[0].value];
+                if (!d) {
+                    alert('Error.');
+                    return;
+                }
+                if (d.size > 35 * 1024 * 1024) {
+                    alert('This file size is too large to get. (35 MB limit)');
+                    return;
+                }
+
+                _getid('layer_overlay').style.display = '';
+                show_message('Get a file to server, and Download it... <span id="progress3"></span>', '', '', '', 1000 * 60 * 60);
+
+                function end() {
+                    _getid('layer_overlay').style.display = 'none';
+                    hide_message();
+                }
+                var param2 = {
+                    'action': 'download'
+                };
+                param2.callback = function(success, resp, param) {
+                    if (!success) {
+                        end();
+                        return;
+                    }
+                    if (success) {
+                        end();
+                        show_message('Get a file to server, and Download it... <a href="" id="down3" target="_blank">Download</a> &nbsp<a href="#" onclick="hide_message();return false">Close</a>', '', '', '', 1000 * 60 * 60 * 60);
+                        var c = _getid('down3');
+                        if (c) {
+                            c.href = resp.tempfilename + '?t=' + (new Date()).getTime();
+                            c.title = d.name;
+                            c.download = d.name;
+                        }
+                    }
+                }
+                pc_action('fget', arr[0].value, arr[0], param2);
+            }
+
+            function pc_edit() {
+                var arr = [];
+                var obj = _getid('viewer');
+                var a = obj.getElementsByTagName('INPUT');
+                for (var i = 0; i < a.length; i++) {
+                    if (a[i].type == 'checkbox' && a[i].checked) {
+                        arr.push(a[i]);
+                    }
+                }
+                if (arr.length == 0) {
+                    alert('No selected files.');
+                    return;
+                } else if (arr.length > 1) {
+                    alert('Please select one file.');
+                    return;
+                }
+                var d = gfiles[arr[0].value];
+                if (!d) {
+                    alert('Error.');
+                    return;
+                }
+                if (d.size > 2 * 1024 * 1024) {
+                    alert('This file size is too large to edit. (2 MB limit)');
+                    return;
+                }
+                if (editparam && editparam.source == (d.parent + d.name) && editparam.serverurl && editparam.serverurl == serverurl && editparam.username == username && editparam.serverport == serverport) {
+                    proc_show_diveditor();
+                    return;
+                }
+
+                _getid('layer_overlay').style.display = '';
+                show_message('Get a file... <span id="progress3"></span>', '', '', '', 1000 * 60 * 60);
+
+                function end() {
+                    _getid('layer_overlay').style.display = 'none';
+                    hide_message();
+                }
+                var param2 = {};
+                param2.callback = function(success, resp, param) {
+                    if (!success) {
+                        end();
+                        return;
+                    }
+                    if (success) {
+                        editparam = param;
+                        editparam.tempfilename = resp.tempfilename;
+                        proc_getfile(editparam.tempfilename + '?t=' + (new Date()).getTime(), function(s) {
+                            end();
+                            proc_show_diveditor();
+                            _getid('diveditor_name').innerHTML = 'File Name: ' + henc(editparam.name);
+                            _getid('diveditor_name').title = editparam.source;
+                            if (diveditor_text2) {
+                                diveditor_text2.setValue(s || '');
+                                diveditor_text2.clearHistory();
+                            }
+                        }, function(s) {
+                            end();
+                            alert(s);
+                        });
+                    }
+                }
+                pc_action('fget', arr[0].value, arr[0], param2);
+            }
+
+            function proc_show_diveditor() {
+                _getid('diveditor').style.display = '';
+                if (!diveditor_text2) {
+                    var opt = {
+                        specialChars: /$^/,
+                        lineNumbers: true,
+                        dragDrop: false,
+                        cursorScrollMargin: 12,
+                    };
+                    diveditor_text2 = CodeMirror.fromTextArea(_getid('diveditor_text'), opt);
+                    diveditor_text2.setOption("styleActiveLine", true);
+
+                    var a = _getid('c_linewrap');
+                    a.onclick = function() {
+                        setstorage('ftpc_c_linewrap', this.checked);
+                        diveditor_text2.setOption("lineWrapping", this.checked);
+                    }
+                    var s = getstorage('ftpc_c_linewrap');
+                    if (s == 'false') a.checked = false;
+                    a.onclick();
+
+                    var s = getstorage('ftpc_c_syntaxs');
+                    if (s) {
+                        _getid('c_syntaxs').value = s;
+                        if (!_getid('c_syntaxs').value) _getid('c_syntaxs').value = '';
+                        proc_syntaxs();
+                    }
+                    _getid('filecharset1').value = 'UTF-8';
+                    _getid('filecharsetbtn').onclick = function() {
+                        var enc = _getid('filecharset1').value;
+                        if (!enc || !g_blob1) return;
+                        _blobtotext(g_blob1, enc, function(s) {
+                            gcschanged = true;
+                            diveditor_text2.setValue(s || '');
+                        }, function() {
+                            alert('There is an error reading the file.');
+                        });
+                    }
+                }
+                gd_btn_login2();
+            }
+
+            function pc_edit_save(f) {
+                if (!editparam || !diveditor_text2) return;
+                var s = diveditor_text2.getValue();
+                var blob = new Blob([s]);
+
+                var param2 = editparam;
+                param2.f = blob;
+                param2.f.name = param2.name || 'No Name';
+                f.disabled = true;
+                param2.callback = function(success, resp) {
+                    f.disabled = false;
+                    if (success) alert('Saved.');
+                }
+                pc_action('fput2', '', '', param2);
+            }
+
+            function proc_getfile(su, success, error) {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    var lastprogress = (new Date()).getTime();
+                    xhr.open('GET', su);
+                    xhr.responseType = 'arraybuffer';
+                    xhr.onprogress = function(event) {
+                        if (lastprogress) {
+                            var elaspetime = new Date();
+                            var dt = (elaspetime.getTime() - lastprogress) / 1000;
+                            if (dt < 1) return;
+                            lastprogress = elaspetime.getTime();
+                        }
+                        var a = event;
+                        var total = a.totalSize || resp.fileSize || 0; //a.total 
+                        var current = a.position || a.loaded || 0;
+                        var c = _getid('progress3');
+                        if (c) c.innerHTML = 'Downloading... (' + number_format(current) + '/' + number_format(total) + ')';
+                    };
+                    xhr.onload = function() {
+                        if (this.status == 200) {
+                            var blob = new Blob([this.response]);
+                            _blobtotext(blob, 'UTF-8', function(s) {
+                                g_blob1 = blob;
+                                success(s);
+                            }, function() {
+                                alert('There was an error.');
+                            });
+                        } else {
+                            error("Error (status) " + this.status + "(" + this.statusText + ") occurred while receiving the file.");
+                        }
+                    };
+                    xhr.onerror = function(e) {
+                        error("Error " + e.target.status + " occurred while receiving the file.");
+                    };
+                    xhr.send();
+                } catch (err) {
+                    error(err + '\n\nor This browser does not support. Please upgrade your browser.');
+                }
+            }
+
+            function _blobtotext(blob, enc, success, error) {
+                if (!blob) return;
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    if (success) success(e.target.result);
+                };
+                reader.onerror = function() {
+                    if (error) error();
+                };
+                if (reader.readAsText) reader.readAsText(blob, enc);
+                else alert("This browser does not support.");
+            }
+
+            function proc_syntaxs() {
+                function find(s) {
+                    if (CodeMirror.modes[s]) return true;
+                }
+
+                function inject(mode, src1, callback) {
+                    var o = document.createElement('scri' + 'pt');
+                    o.setAttribute('src', src1);
+                    o.setAttribute('type', 'text/javascript');
+                    document.body.appendChild(o);
+                    clearInterval(gsyntaxtimer);
+                    gsyntaxtimer = setInterval(function() {
+                        if (find(mode)) {
+                            //console.log(mode);
+                            clearInterval(gsyntaxtimer);
+                            callback();
+                        }
+                    }, 300);
+                }
+
+                var m = trim(_getid('c_syntaxs').value);
+                setstorage('ftpc_c_syntaxs', m);
+                if (!m) {
+                    diveditor_text2.setOption("mode", "");
+                    return;
+                }
+                var m2 = '';
+                var arr = [];
+                if (gsyntaxs2[m]) {
+                    arr = (gsyntaxs2[m].join(',') + ',' + m).split(',');
+                } else if (gsyntaxs3[m]) {
+                    arr.push(gsyntaxs3[m][0]);
+                    m2 = gsyntaxs3[m][1];
+                } else {
+                    arr.push(m);
+                }
+                //console.log(arr);
+                function go(idx) {
+                    if (idx > arr.length - 1) return;
+                    var mode = arr[idx];
+                    if (!find(mode)) {
+                        inject(mode, 'js/CodeMirror5.13/mode/' + mode + '/' + mode + '.js', function() {
+                            if (idx == arr.length - 1) diveditor_text2.setOption("mode", m2 || mode);
+                            idx++;
+                            go(idx);
+                        });
+                    } else {
+                        if (idx == arr.length - 1) diveditor_text2.setOption("mode", m2 || mode);
+                        idx++;
+                        go(idx);
+                    }
+                }
+                go(0);
+            }
+
+            function pc_upload() {
+                if (!userfiles || !userfiles[0]) {
+                    alert('Please select a file.');
+                    return;
+                }
+                if (userfiles[0].size > 35 * 1024 * 1024) {
+                    alert('The file size is too large to upload. (Local: 35M, Cloud: 35M limit)');
+                    return;
+                }
+                var param2 = {};
+                param2.f = userfiles[0];
+                pc_action('fput', '', '', param2);
+            }
+
+            function pc_upload2() {
+                if (!cl_files || !cl_files[0]) {
+                    alert('Please select a file.');
+                    return;
+                }
+                var param2 = {};
+                param2.imgtitle = cl_files[0].filename;
+                param2.imgurl = cl_files[0].link;
+                param2.data = cl_files[0];
+                pc_action('fput', '', '', param2);
+            }
+
+            function action_post(param, callback, param2) {
+                function end() {
+                    _getid('downlink2').innerHTML = '';
+                    if (param.method == 'fput') {
+                        gworking = false;
+                        _getid('downlink3').innerHTML = '';
+                    }
+                }
+                try {
+                    if (param.method == 'fput') {
+                        if (gworking) {
+                            alert("It's working... Please try again later.");
+                            return;
+                        }
+                        gworking = true;
+                        _getid('downlink3').innerHTML = '<img src="images/wait.gif" align="absmiddle"> <span id="progress2">Uploading...</span>';
+                    } else {
+                        if (param.method != 'rawlist') _getid('downlink2').innerHTML = '<img src="images/wait.gif" align="absmiddle">';
+                    }
+                    var body = JSON.stringify(param || '');
+
+                    var fd = new FormData();
+                    fd.append('body', body);
+                    if (param2) {
+                        if (param2.f) fd.append('file1', param2.f);
+                        if (param2.imgurl) fd.append('imgurl', param2.imgurl);
+                        if (param2.imgtitle) fd.append('imgtitle', param2.imgtitle);
+                    }
+                    var uid = getstorage('ftpc_c_uniq') || '';
+                    if (uid.length < 5) {
+                        uid = guid();
+                        setstorage('ftpc_c_uniq', uid);
+                    }
+                    fd.append('uid', uid);
+
+                    var xhr2, fd2, count;
+
+                    function getresult(resultfile) {
+                        if (!xhr2) {
+                            count = 0;
+                            xhr2 = new XMLHttpRequest();
+                            fd2 = new FormData();
+                            fd2.append('resultfile', resultfile);
+                        }
+                        count++;
+                        if (count > 40) {
+                            end();
+                            alert('Error. Timeout.');
+                            callback();
+                            return;
+                        }
+                        xhr2.open('POST', 'post.php?action=getresults');
+                        xhr2.onload = function() {
+                            if (!this.response) {
+                                setTimeout(function() {
+                                    getresult(resultfile);
+                                }, 3000);
+                                return;
+                            }
+                            var a = {};
+                            try {
+                                a = JSON.parse(this.response);
+                            } catch (err) {
+                                a = {};
+                            }
+                            end();
+                            callback(a);
+                        }
+                        xhr2.send(fd2);
+                    }
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'post.php');
+                    if (param.method == 'fput') {
+                        var lastprogress = (new Date()).getTime();
+                        xhr.upload.onprogress = function(e) {
+                            if (lastprogress) {
+                                var elaspetime = new Date();
+                                var dt = (elaspetime.getTime() - lastprogress);
+                                if (dt < 300) return;
+                                lastprogress = elaspetime.getTime();
+                            }
+                            if (!e.lengthComputable) return;
+                            var percentComplete = (e.loaded / e.total) * 100;
+                            percentComplete = Math.floor(percentComplete);
+                            if (percentComplete >= 100) percentComplete = 100;
+
+                            var s = percentComplete + "% Done.";
+                            if (percentComplete > 80) s = "Uploading.. Wait...";
+                            var c = _getid('progress2');
+                            if (c) c.innerHTML = s;
+                        }
+                    }
+                    xhr.onload = function() {
+                        //console.log(this.response);
+                        var a = {};
+                        try {
+                            a = JSON.parse(this.response);
+                        } catch (err) {
+                            a = {};
+                        }
+                        if (a.resultfile) {
+                            setTimeout(function() {
+                                getresult(a.resultfile);
+                            }, 1500);
+                        } else {
+                            end();
+                            callback(a);
+                        }
+                    };
+                    xhr.onerror = function(e) {
+                        end();
+                        callback();
+                    };
+                    xhr.send(fd);
+                } catch (err) {
+                    end();
+                    callback();
+                }
+            }
+
+            function pc_login(notlistyet, callback) {
+                function g(issave, name) {
+                    var data = {};
+                    try {
+                        try {
+                            data = JSON.parse(getstorage(name));
+                        } catch (err) {
+                            data = {};
+                        }
+                        if (!data) data = {};
+                        var now = new Date();
+                        var time = now.getFullYear() + '-' + (now.getMonth() + 1) + '-' + now.getDate();
+                        if (data.time != time) {
+                            data.time = time;
+                            data.count = 1;
+                        } else {
+                            if (!data.count) data.count = 1;
+                            data.count = data.count + 1;
+                        }
+                        if (issave) setstorage(name, JSON.stringify(data));
+                    } catch (err) {}
+                    return data;
+                }
+                if (gadb) {
+                    alert('Please disable the adblock for free use.');
+                    return;
+                }
+                if (logintimer) {
+                    alert("Connecting... Please try again in a few seconds.");
+                    return;
+                }
+                var udata = g(false, 'ftpc_iwcount');
+                if (udata.count > 33) {
+                    alert('You have exceeded the daily usage. Please try again later.');
+                    return;
+                }
+                setstorage('ftpc_iwcount', JSON.stringify(udata));
+
+                serverurl = trim(_getid('wd_serverurl').value);
+                if (!serverurl) {
+                    alert('Please enter a FTP server address.');
+                    _getid('wd_serverurl').focus();
+                    return;
+                }
+                servertype = _getid('wd_servertype').value || 'ftp';
+                serverport = trim(_getid('wd_serverport').value);
+                if (!serverport) {
+                    if (servertype == 'sftp') serverport = 22;
+                    else serverport = 21;
+                    //_getid('wd_serverport').value=serverport;
+                }
+                encoding = _getid('wd_encoding').value || '';
+                username = trim(_getid('wd_username').value);
+                if (!username) {
+                    username = 'anonymous';
+                    _getid('wd_username').value = 'anonymous';
+                }
+                password = trim(_getid('wd_password').value);
+                if (!password && username == 'anonymous') {
+                    password = 'anonymous';
+                    _getid('wd_password').value = 'anonymous';
+                }
+                passivemode = _getid('wd_passivemode').checked;
+
+                if (editparam && _getid('diveditor').style.display == 'none') editparam = '';
+                if (!notlistyet) {
+                    gcache = [];
+                    pc_list(null);
+                }
+                if (callback) callback();
+            }
+
+            function pc_refresh() {
+                if (editparam && _getid('diveditor').style.display == 'none') editparam = '';
+                pc_list(gnavs.length - 1, true, false, true);
+            }
+
+            function pc_log(s, state) {
+                s = '<font class="' + state + '">' + henc(s) + '</font>';
+                _getid("viewer").innerHTML = s;
+            }
+
+            function sortype_onchange() {
+                pc_list(gnavs.length - 1, true);
+            }
+
+            var cl_files = [];
+            var gdata;
+
+            function cl_display() {
+                if (cl_files.length == 0) {
+                    //alert('No selected file');
+                    return;
+                }
+                var d = cl_files[0];
+
+                function go() {
+                    //s='<button onclick="pc_upload2()" title="Upload a file from Cloud">Upload</button>';
+                    var s = '<a href="#" onclick="pc_upload2();return false" title="Upload a file from Cloud">Upload</a>';
+                    if (d.service == 'Google Drive') {
+                        gdata = d;
+                        s += ' &nbsp;<a href="#" onclick="proc_gview(\'' + d.resp.id + '\');return false">View</a>';
+                    }
+                    s += ' &nbsp;<a href="' + (d.webContentLink || d.link) + '" download="" target="_blank" title="Download this file\n' + d.service + '\n(' + getsize(d.size) + ')">' + henc(d.filename) + '</a>';
+                    _getid("downlink").innerHTML = s;
+                }
+                if (d.service == 'Google Drive' && d.resp.exportLinks) {
+                    var resp = d.resp;
+                    var s1 = '<b>Select a file type to export and download:</b><br><br>';
+                    var prefer = getstorage('c_prefer_ext') || 'pdf';
+                    var list = [];
+                    for (x in resp.exportLinks) {
+                        var a = {};
+                        a.name = x;
+                        a.url = resp.exportLinks[x] || '';
+                        var match = a.url.match(/(exportFormat=|format=)(.*?)(&|$)/i);
+                        if (match) a.ext = match[2];
+                        s1 += '<label style="cursor:pointer"><input type=radio name=gdsel value="' + list.length + '"';
+                        if (prefer == a.ext) s1 += ' checked=true';
+                        s1 += '> ' + a.name;
+                        if (a.ext) s1 += ' (.' + a.ext + ')';
+                        s1 += '</label><br><br>';
+                        list.push(a);
+                    }
+                    var gwin = _getid("gd_window");
+                    gwin.innerHTML = '<table><tr><td>' + s1 + '<tr><td align=center><button id="gd_ok" style="font-size:17px">OK</button> <button id="gd_cancel" style="font-size:17px">Cancel</button></table>';
+                    gwin.style.display = '';
+                    gd_btn_login2(false, function() {
+                        _getid('gd_ok').focus();
+                    });
+
+                    function selok() {
+                        gwin.style.display = 'none';
+                        var ans;
+                        var radios = gwin.getElementsByTagName('input');
+                        for (var i = 0; i < radios.length; i++) {
+                            if (radios[i].type == 'radio' && radios[i].checked) {
+                                ans = radios[i].value;
+                                break;
+                            }
+                        }
+                        ans = parseInt(ans);
+                        if (isNaN(ans) || ans < 0 || ans > list.length - 1) {
+                            alert('No selected.');
+                            return;
+                        }
+                        d.link = list[ans].url;
+                        d.filename += '.' + (list[ans].ext || '');
+                        setstorage('c_prefer_ext', (list[ans].ext || ''));
+                        go();
+                    }
+                    var a = gwin.getElementsByTagName('label');
+                    for (var i = 0; i < a.length; i++) {
+                        a[i].ondblclick = selok;
+                    }
+                    _getid('gd_ok').onclick = selok;
+                    _getid('gd_cancel').onclick = function() {
+                        gwin.style.display = 'none';
+                    }
+                } else {
+                    if (d.size > 35 * 1024 * 1024) {
+                        alert('The file size is too large to upload. (Local: 35M, Cloud: 35M limit)');
+                        return;
+                    }
+                    go();
+                }
+            }
+
+            function proc_gview(id, obj) {
+                try {
+                    var s, embed;
+                    var a = _getid("gviewer");
+                    if (id) {
+                        if (!gdata) return;
+                        var resp = gdata.resp;
+                        s = 'https://drive.google.com/file/d/' + resp.id + '/preview';
+                        if (resp && resp.embedLink) s = resp.embedLink;
+                        /*if(resp.alternateLink){
+                        	var p1=resp.alternateLink.lastIndexOf("/");
+                        	if(p1>=0) s=resp.alternateLink.substr(0,p1)+'/preview';
+                        }*/
+                    } else if (!obj) {
+                        if (!gdata) return;
+                        if (gdata.f) {
+                            if (!window.URL) {
+                                alert('Not supported on this browser');
+                                return;
+                            }
+                            if (g_lastbloburl2) window.URL.revokeObjectURL(g_lastbloburl2);
+                            g_lastbloburl2 = window.URL.createObjectURL(gdata.f);
+                            s = g_lastbloburl2;
+                            embed = true;
+                        } else {
+                            s = gdata.link;
+                            embed = true;
+                        }
+                    } else if (obj) {
+                        s = obj.getAttribute("data");
+                    } else {
+                        return;
+                    }
+                    a.setAttribute("data", "small");
+                    a.style.display = '';
+                    var ifrm2 = _getfrmdoc(a);
+                    var flag;
+                    if (embed) {
+                        try {
+                            ifrm2.document.open();
+                            ifrm2.document.write('<html><style>html,body{margin:0px;padding:0px}</style><body><img id="viewimg" src="' + s + '"></body></html>');
+                            ifrm2.document.close();
+                            flag = true;
+                        } catch (err) {}
+                    }
+                    if (!flag) ifrm2.location.replace(s);
+                    gd_btn_login2();
+                } catch (err) {}
+            }
+
+            function proc_rssclose() {
+                var a = _getid("gviewer");
+                if (a && a.style.display == '') {
+                    a.style.display = "none";
+                    _getid("btn_gvclose").style.display = "none";
+                    try {
+                        var ifrm2 = _getfrmdoc(a);
+                        if (ifrm2) ifrm2.location.replace('about:blank');
+                    } catch (err) {}
+                }
+            }
+            init();
+        </script>
+        <div id="downloading" style="display:none"></div>
+
+        <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="kr19li1hb5w4btr"></script>
+
+        <style>
+            .shadow {
+                border: 0px solid silver;
+                -webkit-box-shadow: 0 0 10px #999;
+                -moz-box-shadow: 0 0 10px #999;
+                box-shadow: 0 0 10px #999;
+            }
+
+            .overlay {
+                height: 100%;
+                width: 100%;
+                position: fixed;
+                z-index: 10000;
+                top: 0;
+                left: 0;
+                background-color: rgb(0, 0, 0);
+                background-color: rgba(0, 0, 0, 0.3);
+                overflow-x: hidden;
+                transition: 0.5s;
+            }
+        </style>
+        <button type="button" id="btn_gvclose" style="z-index:1002;position:absolute;font-size:20px;padding:4px 25px;display:none;white-space:nowrap"><img src="images/close.png" width=14 align="absmiddle"> Close</button>
+        <iframe id="gviewer" src="" style="z-index:1003;position:absolute;display:none;background-color:white" class="shadow" frameborder=0 allowfullscreen="true"></iframe>
+        <div id="layer_overlay" class="overlay" style="display:none"></div>
+
+        <style>
+            .gd_div {
+                background-color: #FFFFE1;
+                position: absolute;
+                overflow: hidden;
+                -webkit-box-shadow: 0 0 25px #999;
+                -moz-box-shadow: 0 0 25px #999;
+                box-shadow: 0 0 25px #999;
+            }
+        </style>
+        <div id="layer_message" class="gd_div" style="z-index:20000;display:none;"></div>
+        <div id="gd_window" class="gd_div" style="z-index:1004;display:none;"></div>
+        <div id="gd_btn_login" class="gd_div" style="z-index:1004;display:none;">
+            <table>
+                <tr>
+                    <td align=center><button onclick="gd_login_manual()" style="font-size:20px"><img src="images/gdrive/product20.png" align="absmiddle"> Login & Authorize</button> <button onclick="gd_login_close()" style="font-size:20px">Close</button>
+                        <tr>
+                            <td>To use this app, Please login to the Google Drive and authorize this app or website.
+                                <br>(Note: If your browser block or disable the third-party cookies, this login does not work correctly.)
+            </table>
+        </div>
+        <script>
+            var CLIENT_ID = '331177918087-i1famjbhb8uhlbqtp650pi7kiersfqi2.apps.googleusercontent.com';
+            var SCOPES = [
+                'https://www.googleapis.com/auth/drive.install',
+                'https://www.googleapis.com/auth/drive.file'
+            ];
+            var gd_developerKey = 'AIzaSyAkQGZUuHZXiOKJ2eQLRWxl9WwFa_1C3Vc';
+            var gd_mimetype = "";
+            var gd_state = '';
+
+            var gd_picker, gd_loaded, gd_pickerloaded, gd_lastprogress, gd_issupported, gd_isdownloading, gd_load_timer, gd_bloburl;
+            var gd_loginexp = 0;
+            var gd_callback;
+            var ismsie = false;
+            if (navigator.appName != "Netscape") {
+                if (navigator.userAgent.indexOf("MSIE") >= 0) ismsie = true;
+            }
+
+            function gd_btn_login(isshow) {
+                var a = _getid("gd_btn_login");
+                if (isshow) {
+                    a.style.display = '';
+                    gd_btn_login2();
+                } else {
+                    a.style.display = 'none';
+                }
+            }
+
+            function gd_login_close() {
+                gd_btn_login(false);
+                gd_state = '';
+            }
+
+            function gd_login_manual() {
+                var p = {
+                    'client_id': CLIENT_ID,
+                    'scope': SCOPES.join(' '),
+                    'immediate': false
+                };
+                if (gd_userId) {
+                    p['login_hint'] = gd_userId;
+                    p['authuser'] = -1;
+                }
+                gapi.auth.authorize(p, function(authResult) {
+                    if (authResult && !authResult.error) {
+                        gd_loginexp = (new Date()).getTime() + parseInt(authResult.expires_in * 0.7 * 1000);
+                        gd_btn_login(false);
+                        gd_info();
+                        show_message("Login ok!!");
+                        if (gd_callback) gd_callback(true);
+                        else gd_open_state(true);
+                    } else {
+                        gd_btn_login(true);
+                        show_message("Login failed!!");
+                    }
+                });
+            }
+
+            function gd_login(callback, react) {
+                if (gd_loginexp == 0 || gd_loginexp < (new Date()).getTime()) {} else {
+                    callback(true);
+                    return;
+                }
+                var p = {
+                    'client_id': CLIENT_ID,
+                    'scope': SCOPES.join(' '),
+                    'immediate': true
+                };
+                if (gd_userId) {
+                    p['login_hint'] = gd_userId;
+                    p['authuser'] = -1;
+                }
+                gapi.auth.authorize(p, function(authResult) {
+                    if (authResult && !authResult.error) {
+                        gd_loginexp = (new Date()).getTime() + parseInt(authResult.expires_in * 0.7 * 1000);
+                        gd_btn_login(false);
+                        gd_info();
+                        callback(true);
+                    } else {
+                        show_message("Login failed!!");
+                        gd_btn_login(true);
+                        callback(false);
+                        if (react) gd_callback = callback;
+                        else gd_callback = null;
+                    }
+                });
+            }
+
+            function gd_checklogin(callback) {
+                gd_login(function(result) {
+                    if (result) callback();
+                }, true);
+            }
+
+            function gd_loadpicker() {
+                gapi.load('picker', {
+                    'callback': function() {
+                        gd_pickerloaded = true;
+                    }
+                });
+            }
+
+            function gd_createpicker() {
+                var access_token = gapi.auth.getToken().access_token;
+                if (!access_token) {
+                    alert('Error!! No access token.');
+                    return;
+                }
+                if (!gd_picker) {
+                    var view2 = new google.picker.DocsView(google.picker.ViewId.DOCS);
+                    if (gd_mimetype) view2.setMimeTypes(gd_mimetype);
+                    view2.setMode(google.picker.DocsViewMode.LIST);
+
+                    var view4 = new google.picker.DocsView();
+                    view4.setIncludeFolders(true);
+                    //view4.setSelectFolderEnabled(true);
+                    view4.setParent("root");
+                    view4.setMimeTypes(gd_mimetype);
+                    view4.setMode(google.picker.DocsViewMode.LIST);
+                    //var view5 = new google.picker.View(google.picker.ViewId.RECENTLY_PICKED);
+
+                    gd_picker = new google.picker.PickerBuilder()
+                        //.enableFeature(google.picker.Feature.NAV_HIDDEN)
+                        .setAppId(CLIENT_ID.split("-")[0])
+                        //.enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+                        .setLocale("en")
+                        .setTitle('') //Select files and folders
+                        .setOAuthToken(access_token)
+                        .addView(view2)
+                        .addView(view4)
+                        //.addView(view5)
+                        .addView(new google.picker.DocsUploadView())
+                        .setDeveloperKey(gd_developerKey)
+                        .setCallback(gd_pickercallback)
+                        .build();
+                }
+                gd_picker.setVisible(true);
+            }
+
+            function gd_pickercallback(data) {
+                if (data.action == google.picker.Action.PICKED) {
+                    if (data.docs && data.docs.length > 0 && data.docs[0].id) {
+                        gd_loadfiles(data.docs);
+                    }
+                }
+            }
+
+            function gd_checkwork() {
+                if (gd_isdownloading) {
+                    alert("It's working. Please try again later. or Cancel the current task.");
+                    return true;
+                }
+            }
+
+            var gcount = 0;
+
+            function gd_loadfiles(docs) {
+                if (gadb) {
+                    alert('Please disable the adblock for free use.');
+                    return;
+                }
+                if (gd_checkwork()) return;
+
+                function end() {
+                    gd_isdownloading = false;
+                    clearTimeout(messagetimer);
+                    hide_message();
+                    _getid("downlink").innerHTML = '';
+                }
+
+                var canceled = false;
+                _getid("downlink").innerHTML = "<table><tr><td><img src='images/wait.gif' align='absmiddle'><td><a href='#' id='gd_cancel'>Cancel</a>&nbsp;<td><div id='gd_progress'>Getting file information...</div></table>";
+                _getid('gd_cancel').onclick = function() {
+                    canceled = true;
+                    return false;
+                }
+                gd_isdownloading = true;
+                if (!docs) {
+                    end();
+                    return;
+                }
+
+                var files = [];
+                for (var i = 0; i <= docs.length - 1; i++) {
+                    if (!docs[i].id) continue;
+                    var d = {};
+                    d.id = docs[i].id;
+                    d.name = docs[i].name;
+                    if (i == 0) d.done = false;
+                    else d.done = true;
+                    files.push(d);
+                }
+
+                function complete() {
+                    var accessToken = gapi.auth.getToken().access_token;
+                    var a, d;
+                    cl_files = [];
+                    for (var i = 0; i <= files.length - 1; i++) {
+                        d = files[i];
+                        if (!d.resp || !d.resp.title || d.resp.mimeType == 'application/vnd.google-apps.folder') continue;
+                        a = {};
+                        gcount++;
+                        a.idx = gcount;
+                        a.service = 'Google Drive';
+                        a.filename = d.resp.title;
+                        if (d.resp.downloadUrl) {
+                            a.link = d.resp.downloadUrl + '&access_token=' + encodeURIComponent(accessToken);
+                            a.link2 = d.resp.downloadUrl;
+                            a.link3 = 'https://www.googleapis.com/drive/v2/files/' + d.resp.id + '?alt=media';
+                            a.webContentLink = d.resp.webContentLink;
+                            a.size = d.resp.fileSize;
+                        }
+                        a.id = d.resp.id;
+                        a.resp = d.resp;
+                        cl_files.push(a);
+                    }
+                    cl_display();
+                }
+
+                var joblist = [];
+                var jobtimer;
+
+                function getentryidx() {
+                    for (var i = 0; i <= files.length - 1; i++) {
+                        if (!files[i].done) {
+                            files[i].done = true;
+                            return i;
+                        }
+                    }
+                    return null;
+                }
+
+                function checkjoblist() {
+                    if (joblist.length == 0) return;
+                    for (var i = 0; i <= joblist.length - 1; i++) {
+                        if (!joblist[i].complete) return;
+                    }
+                    clearInterval(jobtimer);
+                    end();
+                    complete();
+                }
+
+                var c_scansub = false;
+
+                function get(jobidx) {
+                    function _call() {
+                        var a = joblist[jobidx];
+                        a.func(jobidx)
+                    }
+                    var idx = getentryidx();
+                    if (idx == null || canceled) {
+                        joblist[jobidx].complete = true;
+                        return;
+                    }
+                    if (files[idx].resp) {
+                        _call();
+                        return;
+                    }
+
+                    function _progress(s) {
+                        var a = _getid("gd_progress");
+                        if (a) a.innerHTML = '(' + (idx + 1) + '/' + files.length + ') ' + henc(s);
+                    }
+                    var folderlist;
+
+                    function getfolder(folderidx) {
+                        if (folderidx > folderlist.length - 1 || canceled) {
+                            _call();
+                            return;
+                        }
+                        _progress('Getting files in the folder... ' + folderlist[folderidx].name);
+                        retrieveAllFiles("'" + folderlist[folderidx].id + "' in parents and trashed=false", function(results) {
+                            var parent = folderlist[folderidx].parent || '';
+                            if (parent) parent += '/';
+                            parent += folderlist[folderidx].name || '';
+
+                            for (var i = 0; i <= results.length - 1; i++) {
+                                var d = {};
+                                d.id = results[i].id;
+                                d.name = results[i].title;
+                                d.resp = results[i];
+                                d.parent = parent;
+                                d.done = true;
+                                files.push(d);
+                                if (c_scansub && d.resp.mimeType == 'application/vnd.google-apps.folder') {
+                                    folderlist.push(d);
+                                }
+                            }
+                            folderidx++;
+                            getfolder(folderidx);
+                        });
+                    }
+
+                    var fileId = files[idx].id;
+                    _progress('Getting file info...');
+
+                    var request = gapi.client.drive.files.get({
+                        'fileId': fileId
+                    });
+                    request.execute(function(resp) {
+                        if (resp.error) {
+                            var s = 'Error. ';
+                            if (files[idx].name) s += files[idx].name + '  ';
+                            if (resp.error.message) s += resp.error.message + ' ';
+                            if (resp.error.code == 401) s += 'Login or Authorize Error.';
+                            //proc_log(s,"error");
+                            alert(s);
+                        }
+                        files[idx].resp = resp;
+                        if (!files[idx].name) files[idx].name = resp.title;
+
+                        if (files[idx].resp.mimeType == 'application/vnd.google-apps.folder') {
+                            folderlist = [];
+                            folderlist.push(files[idx]);
+                            getfolder(0);
+                        } else {
+                            _call();
+                        }
+                    });
+                }
+
+                if (files.length == 0) {
+                    end();
+                    return;
+                }
+                gapi.client.load('drive', 'v2', function() {
+                    jobtimer = setInterval(checkjoblist, 200);
+                    for (var i = 0; i < 2; i++) {
+                        var a = {};
+                        a.func = get;
+                        a.complete = false;
+                        joblist.push(a);
+                        a.func(i);
+                    }
+                });
+            }
+
+            function proc_log(s, name) {
+                s = '<font class="' + (name || '') + '">' + henc(s) + '</font>';
+                _getid('downlink').innerHTML = s;
+            }
+
+            function retrieveAllFiles(query, callback) {
+                var retrievePageOfFiles = function(request, result) {
+                    request.execute(function(resp) {
+                        result = result.concat(resp.items);
+                        var nextPageToken = resp.nextPageToken;
+                        if (nextPageToken) {
+                            request = gapi.client.drive.files.list({
+                                'q': query,
+                                'pageToken': nextPageToken,
+                            });
+                            retrievePageOfFiles(request, result);
+                        } else {
+                            callback(result);
+                        }
+                    });
+                }
+                var initialRequest = gapi.client.drive.files.list({
+                    'q': query
+                });
+                retrievePageOfFiles(initialRequest, []);
+            }
+
+            function gd_open_picker() {
+                if (gd_checkwork()) return;
+                if (!gd_issupported) {
+                    alert("This browser does not support.");
+                    return;
+                }
+                if (!gd_loaded || !gd_pickerloaded) {
+                    if (!gd_load_timer) gd_loadscript(gd_open_picker);
+                    else alert('Not loaded library. Please try again in a few minutes.');
+                    return;
+                }
+                gd_checklogin(function() {
+                    gd_createpicker();
+                });
+            }
+
+            function gd_open_state(force) {
+                var s = gd_state;
+                if (s) {
+                    if (!gd_issupported) {
+                        gd_state = '';
+                        alert("This browser does not support.");
+                        return;
+                    }
+                    s = decodeURIComponent(s);
+                    try {
+                        var a = JSON.parse(s);
+                        var ids = [];
+
+                        function find(b) {
+                            if (!b) return;
+                            for (var i = 0; i <= b.length - 1; i++) {
+                                if (b[i]) {
+                                    var cc = {};
+                                    cc.id = b[i];
+                                    ids.push(cc);
+                                }
+                            }
+                        }
+                        find(a.ids);
+                        find(a.exportIds);
+                        if (ids.length > 0) {
+                            gd_login(function(result) {
+                                if (gd_open2 && !force) return;
+                                gd_open2 = true;
+                                if (!result) return;
+                                //_getid('gd_btn_reopen').style.display='';
+                                gd_state = '';
+                                gd_loadfiles(ids, true);
+                            });
+                        }
+                    } catch (err) {}
+                }
+            }
+
+            function gd_clientload() {
+                gd_loaded = true;
+                gd_open_state();
+            }
+            var gd_open2;
+
+            function gd_open_state2() {
+                setTimeout(function() {
+                    if (!gd_open2) gd_open_state();
+                }, 1000);
+            }
+
+            function gd_loadscript(callback) {
+                function inject(s) {
+                    var o = document.createElement('scri' + 'pt');
+                    o.setAttribute('src', s);
+                    o.setAttribute('type', 'text/javascript');
+                    document.body.appendChild(o);
+                }
+                if (gd_load_timer) return;
+                if (gd_loaded && gd_pickerloaded) return;
+                gd_load_timer = setInterval(function() {
+                    if (gd_loaded && gd_pickerloaded) {
+                        clearInterval(gd_load_timer);
+                        if (callback) callback();
+                    }
+                }, 100);
+                inject('https://apis.google.com/js/client.js?onload=gd_clientload');
+                inject('https://apis.google.com/js/api.js?onload=gd_loadpicker');
+            }
+
+            var gd_userId, gd_email;
+
+            function gd_weburl() {
+                var s;
+                if (gd_email) s = 'https://drive.google.com/?authuser=' + gd_email;
+                else s = 'https://drive.google.com/';
+                return s;
+            }
+
+            function gd_info() {
+                if (gd_email) return;
+                gapi.client.load('drive', 'v2', function() {
+                    var request = gapi.client.drive.about.get();
+                    request.execute(function(resp) {
+                        if (resp && resp.user) {
+                            if (gd_email) return;
+                            gd_email = resp.user.emailAddress;
+                            if (gd_email) {
+                                var a = _getid('btn_open');
+                                var b = _getid('gd_btn_reopen');
+                                if (a) a.title = a.title + ' (' + gd_email + ')';
+                                if (b) b.title = b.title + ' (' + gd_email + ')';
+                            }
+                        }
+                    });
+                });
+            }
+
+            function gd_dblclick() {
+                function dblclick() {
+                    try {
+                        if (gd_picker) gd_picker.setVisible(false);
+                    } catch (err) {}
+                }
+
+                function keydown(e) {
+                    if (!e) e = window.event;
+                    if (e && e.keyCode == 27) {
+                        dblclick();
+                        proc_rssclose();
+                    }
+                }
+                if (window.addEventListener) {
+                    document.addEventListener("dblclick", dblclick, false);
+                    document.addEventListener("keydown", keydown, false);
+                } else if (window.attachEvent) {
+                    document.attachEvent("ondblclick", dblclick);
+                    document.attachEvent("onkeydown", keydown);
+                }
+                document.documentElement.onmouseup = function(e) {
+                    if (!e) e = event;
+                    if (e.button != 0 && e.button != 1) return;
+                    var w = getWindowWidth() - 27;
+                    var h = getWindowHeight() - 27;
+                    if (e.clientX > w || e.clientY > h) return;
+                    var b2;
+                    if (e.target) b2 = e.target;
+                    else if (e.srcElement) b2 = e.srcElement;
+                    if (b2.tagName == 'A' || b2.tagName == 'SPAN') return;
+                    while (b2) {
+                        if (b2.id == "rssviewer" || b2.id == "imgrss") {
+                            return;
+                        }
+                        if (b2 == document.body) break;
+                        if (b2.parentElement) b2 = b2.parentElement;
+                        else b2 = b2.parentNode;
+                    }
+                    proc_rssclose();
+                }
+            }
+
+            function gd_init() {
+                gd_dblclick();
+                if (!window.XMLHttpRequest || !window.URL) {} else {
+                    gd_issupported = true;
+                    if (gd_state) {
+                        try {
+                            var a = JSON.parse(gd_state);
+                            gd_userId = a.userId;
+                            if (a.ids || a.exportIds) {
+                                _getid("downlink").innerHTML = "<table><tr><td><div id='gd_progress'>Ready...</div></table>";
+                            }
+                        } catch (err) {}
+                        if (window.addEventListener) window.addEventListener("load", gd_open_state2, false);
+                        else if (window.attachEvent) window.attachEvent("onload", gd_open_state2);
+                    }
+                    gd_loadscript();
+                }
+            }
+            gd_init();
+
+            var dropboxOptions = {
+                success: function(files) {
+                    if (!files || files.length == 0) {
+                        cl_error('Error!!');
+                        return;
+                    }
+                    var a;
+                    cl_files = [];
+                    for (var i = 0; i <= files.length - 1; i++) {
+                        if (files[i].is_dir) continue;
+                        a = {};
+                        a.service = 'Dropbox';
+                        a.filename = files[i].name;
+                        a.link = files[i].link || '';
+                        if (a.link.indexOf('?dl=1') < 0) a.link += '?dl=1';
+                        a.size = files[i].bytes;
+                        cl_files.push(a);
+                    }
+                    cl_display();
+                },
+                cancel: function() {
+                    //cl_error('Canceled by user.');
+                },
+                linkType: "direct", //preview,direct
+                multiselect: false,
+                //extensions: ['.pdf', '.doc', '.docx'],
+            };
+
+            function open_dropbox() {
+                if (gd_isdownloading) {
+                    alert("It's working... Please try again later.");
+                    return;
+                }
+                Dropbox.choose(dropboxOptions);
+            }
+        </script>
+        <script src="https://storage.googleapis.com/app0126/js/bottom.js" async tos="../tos.php?app=FTP%20Client%20With%20Drive" sitetitle="FTP Client With Drive"></script>
+        <script>
+            function gd_findscope(s) {
+                function trim(str) {
+                    return (str || '').replace(/^\s*|\s*$/g, "");
+                }
+                var s1;
+                try {
+                    if (!s) return false;
+                    s = ' ' + s.toLowerCase() + ' ';
+                    for (var i = 0; i < SCOPES.length; i++) {
+                        if (!SCOPES[i]) continue;
+                        s1 = trim(SCOPES[i].split('/').pop().toLowerCase());
+                        //if(s1=='drive.appfolder') s1='drive.appdata';
+                        if (!/^(drive\.install|drive\.file|drive)$/.test(s1)) continue;
+                        if (s.indexOf(s1 + ' ') < 0) return false;
+                    }
+                } catch (err) {}
+                return true;
+            }
+
+            function init_fix_scope() {
+                var a = window.gd_login_manual;
+                var b = window.gd_login;
+                if (!a) a = window.proc_login_manual;
+                if (!b) b = window.proc_login;
+                if (a) a = a + '';
+                if (b) b = b + '';
+                var ss = 'if (authResult && !authResult.error';
+                var ss2 = 'if (authResult && (!authResult.error || authResult.access_token)';
+                if (a && a.indexOf(ss) >= 0 && a.indexOf('gd_findscope(') < 0) {
+                    a = a.replace(ss, 'if (authResult && !authResult.error && gd_findscope(authResult.scope)');
+                    window.eval(a);
+                } else if (a && a.indexOf(ss2) >= 0 && a.indexOf('gd_findscope(') < 0) {
+                    a = a.replace(ss2, 'if (authResult && (!authResult.error || authResult.access_token) && gd_findscope(authResult.scope)');
+                    window.eval(a);
+                }
+                if (b && b.indexOf(ss) >= 0 && b.indexOf('gd_findscope(') < 0) {
+                    b = b.replace(ss, 'if (authResult && !authResult.error && gd_findscope(authResult.scope)');
+                    window.eval(b);
+                } else if (b && b.indexOf(ss2) >= 0 && b.indexOf('gd_findscope(') < 0) {
+                    b = b.replace(ss2, 'if (authResult && (!authResult.error || authResult.access_token) && gd_findscope(authResult.scope)');
+                    window.eval(b);
+                }
+            }
+            init_fix_scope();
+        </script>
+    </body>
+
+</html>
